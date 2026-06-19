@@ -180,20 +180,20 @@ class OnOffAttrObserver {
     OnOffAttrObserver.singleton = this;
     for (let { name, on, off } of defs)
       this.observe({ name, on, off });
-    monkeyPatchHtmlMutations(this.microOnElement.bind(this), this.microOffElement.bind(this));
+    monkeyPatchHtmlMutations(this.on.bind(this), this.off.bind(this));
     for (let el of document.getElementsByTagName("*"))
       for (let attr of el.attributes)
-        this.microOnElement(attr);
+        this.on(attr);
     document.readyState === "loading" && document.addEventListener("DOMContentLoaded", () => {
       for (let el of document.getElementsByTagName("*"))
         for (let attr of el.attributes)
-          this.microOnElement(attr);
+          this.on(attr);
     });
   }
 
-  microOnElement(at) {
+  on(at) {
     if (!at[OnOffAttrObserver.PORTAL]) {
-      const portal = at.name.substring(0, at.name.indexOf(/[_.:]/));
+      const portal = at.name.substring(0, at.name.search(/[_.:]/));
       Object.assign(at, { [OnOffAttrObserver.PORTAL]: portal }, this.Defs[portal]);
     }
     if (!at[OnOffAttrObserver.ON])
@@ -202,7 +202,8 @@ class OnOffAttrObserver {
     if (this.onTasks.size > 1)
       return;
     queueMicrotask(_ => {
-      for (let at of this.onTasks)
+      const tasks = new Set(this.onTasks);
+      for (let at of tasks)
         try {
           at[OnOffAttrObserver.ON]();
         } catch (e) {
@@ -212,7 +213,7 @@ class OnOffAttrObserver {
     });
   }
 
-  microOffElement(at) {
+  off(at) {
     this.noOn.delete(at);
     if (!at[OnOffAttrObserver.OFF])
       return;
@@ -231,7 +232,7 @@ class OnOffAttrObserver {
   }
 
   observe({ name, on, off }) {
-    if (!name.matches(/^[a-zA-Z][a-zA-Z0-9]*$/))
+    if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(name))
       throw new Error(`Invalid portal name: ${name}`);
     if (!on)
       throw new Error(`Missing on() for portal: ${name}`);
@@ -244,7 +245,7 @@ class OnOffAttrObserver {
       if (at[OnOffAttrObserver.PORTAL] === name) {
         Object.assign(at, Def);
         this.noOn.delete(at);
-        this.microOnElement(at);
+        this.on(at);
       };
   }
 }
