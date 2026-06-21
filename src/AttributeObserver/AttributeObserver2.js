@@ -125,78 +125,129 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
     at && offElement(at);
     return res;
   }
+  const toggleAttribute_DD = og => function toggleAttribute_DD(name, force) {
+    const old = this.getAttributeNode(name);
+    const res = og.call(this, name, force);
+    const now = this.getAttributeNode(name);
+    if (!old && now) onElement(now);
+    if (old && !now) offElement(old);
+    return res;
+  }
+  const reflectingProperty_DD = (og, attr) => function wrapSet(value) {
+    const old = this.getAttributeNode(attr);
+    const res = og.call(this, value);
+    const now = this.getAttributeNode(attr);
+    if (!old && now) onElement(now);
+    if (old && !now) offElement(old);
+    return res;
+  }
 
-  let OG = Object.getOwnPropertyDescriptor(Element.prototype, "insertAdjacentHTML");
-  Object.defineProperty(Element.prototype, "insertAdjacentHTML", { value: insertAdjacentHTML_DD(OG.value) });
-  OG = Object.getOwnPropertyDescriptor(Node.prototype, "cloneNode");
-  Object.defineProperty(Node.prototype, "cloneNode", { value: cloneNode_DD(OG.value) });
-  OG = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
-  Object.defineProperty(Element.prototype, "innerHTML", { set: innerHTMLsetter(OG.set), get: OG.get });
-  OG = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, "innerHTML");
-  Object.defineProperty(ShadowRoot.prototype, "innerHTML", { set: innerHTMLsetter(OG.set), get: OG.get });
-  OG = Object.getOwnPropertyDescriptor(Element.prototype, "outerHTML");
-  Object.defineProperty(Element.prototype, "outerHTML", { set: outerHTMLsetter(OG.set), get: OG.get });
-  OG = Object.getOwnPropertyDescriptor(Element.prototype, "setAttribute");
-  Object.defineProperty(Element.prototype, "setAttribute", { value: setAttribute_DD(OG.value) });
-  OG = Object.getOwnPropertyDescriptor(Element.prototype, "removeAttribute");
-  Object.defineProperty(Element.prototype, "removeAttribute", { value: removeAttribute_DD(OG.value) });
 
-  //deprecate the namespace versions since they are not supported by DoubleDots and only add complexity to the implementation
-  const setAttributeNode_DD = () => { throw new Error("setAttributeNode is not supported by DoubleDots."); }
-  const hasAttributeNode = () => { throw new Error("hasAttributeNode is not supported by DoubleDots."); }
-  const removeAttributeNode = () => { throw new Error("removeAttributeNode is not supported by DoubleDots."); }
-  const setAttributeNS_DD = () => { throw new Error("setAttributeNS is not supported by DoubleDots."); }
-  const hasAttributeNS = () => { throw new Error("hasAttributeNS is not supported by DoubleDots."); }
-  const removeAttributeNS = () => { throw new Error("removeAttributeNS is not supported by DoubleDots."); }
-  const setAttributeNodeNS_DD = () => { throw new Error("setAttributeNodeNS is not supported by DoubleDots."); }
-  const hasAttributeNodeNS = () => { throw new Error("hasAttributeNodeNS is not supported by DoubleDots."); }
-  const removeAttributeNodeNS = () => { throw new Error("removeAttributeNodeNS is not supported by DoubleDots."); }
-  Object.defineProperty(Element.prototype, "setAttributeNode", { value: setAttributeNode_DD });
-  Object.defineProperty(Element.prototype, "hasAttributeNode", { value: hasAttributeNode });
-  Object.defineProperty(Element.prototype, "removeAttributeNode", { value: removeAttributeNode });
-  Object.defineProperty(Element.prototype, "setAttributeNS", { value: setAttributeNS_DD });
-  Object.defineProperty(Element.prototype, "hasAttributeNS", { value: hasAttributeNS });
-  Object.defineProperty(Element.prototype, "removeAttributeNS", { value: removeAttributeNS });
-  Object.defineProperty(Element.prototype, "setAttributeNodeNS", { value: setAttributeNodeNS_DD });
-  Object.defineProperty(Element.prototype, "hasAttributeNodeNS", { value: hasAttributeNodeNS });
-  Object.defineProperty(Element.prototype, "removeAttributeNodeNS", { value: removeAttributeNodeNS });
+  const Methods = [
+    [Element.prototype, "insertAdjacentHTML", insertAdjacentHTML_DD],
+    [Node.prototype, "cloneNode", cloneNode_DD],
+    [Element.prototype, "setAttribute", setAttribute_DD],
+    [Element.prototype, "removeAttribute", removeAttribute_DD],
+    [Element.prototype, "toggleAttribute", toggleAttribute_DD],
+  ];
+  const Setters = [
+    [Element.prototype, "innerHTML", innerHTMLsetter],
+    [globalThis.ShadowRoot?.prototype, "innerHTML", innerHTMLsetter],
+    [Element.prototype, "outerHTML", outerHTMLsetter],
+  ];
+  const ReflectingProps = [
+    //boolean reflecting attributes
+    [Element.prototype, "hidden"],
+    [HTMLInputElement.prototype, "disabled"],
+    [HTMLInputElement.prototype, "readonly"],
+    [HTMLInputElement.prototype, "required"],
+    [HTMLButtonElement.prototype, "disabled"],
+    [HTMLSelectElement.prototype, "disabled"],
+    [HTMLSelectElement.prototype, "required"],
+    [HTMLSelectElement.prototype, "multiple"],
+    [HTMLSelectElement.prototype, "size"],
+    [HTMLTextAreaElement.prototype, "disabled"],
+    [HTMLTextAreaElement.prototype, "readonly"],
+    [HTMLTextAreaElement.prototype, "required"],
+    [HTMLDetailsElement.prototype, "open"],
+    [globalThis.HTMLDialogElement?.prototype, "open"],
+    //string reflecting attributes
+    [Element.prototype, "id"],
+    [Element.prototype, "className", "class"],
+    [HTMLImageElement.prototype, "src"],
+    [HTMLIFrameElement.prototype, "src"],
+    [HTMLAnchorElement.prototype, "href"],
+    [HTMLFormElement.prototype, "method"],
+    [HTMLFormElement.prototype, "action"],
+    [HTMLTextAreaElement.prototype, "value"],
+    [HTMLSelectElement.prototype, "value"],
+  ];
+
+  for (let [obj, method, wrapper] of Methods) {
+    const OG = Object.getOwnPropertyDescriptor(obj, method);
+    OG && Object.defineProperty(obj, method, { ...OG, value: wrapper(OG.value) });
+  }
+  for (let [obj, prop, wrapper] of Setters) {
+    const OG = Object.getOwnPropertyDescriptor(obj, prop);
+    OG && Object.defineProperty(obj, prop, { ...OG, set: wrapper(OG.set) });
+  }
+  for (let [obj, prop, attr = prop] of ReflectingProps) {
+    const OG = Object.getOwnPropertyDescriptor(obj, prop);
+    OG && Object.defineProperty(obj, prop, { ...OG, set: reflectingProperty_DD(OG.set, attr) });
+  }
+
+  Object.defineProperties(Element.prototype, {
+    setAttributeNode: { value: () => { throw new Error("setAttributeNode is deprecated in DoubleDots."); } },
+    hasAttributeNode: { value: () => { throw new Error("hasAttributeNode is deprecated in DoubleDots."); } },
+    removeAttributeNode: { value: () => { throw new Error("removeAttributeNode is deprecated in DoubleDots."); } },
+    setAttributeNS: { value: () => { throw new Error("setAttributeNS is deprecated in DoubleDots."); } },
+    hasAttributeNS: { value: () => { throw new Error("hasAttributeNS is deprecated in DoubleDots."); } },
+    removeAttributeNS: { value: () => { throw new Error("removeAttributeNS is deprecated in DoubleDots."); } },
+    setAttributeNodeNS: { value: () => { throw new Error("setAttributeNodeNS is deprecated in DoubleDots."); } },
+    hasAttributeNodeNS: { value: () => { throw new Error("hasAttributeNodeNS is deprecated in DoubleDots."); } },
+    removeAttributeNodeNS: { value: () => { throw new Error("removeAttributeNodeNS is deprecated in DoubleDots."); } },
+  });
 }
 
-class OnOffAttrObserver {
+class AttrOnOff {
 
   static ON = Symbol("on");
   static OFF = Symbol("off");
   static PORTAL = Symbol("portal");
-  static singleton;
+  static #singleton;
   onTasks = new Set();
   offTasks = new Set();
   noOn = new IterableWeakSet();
   Defs = Object.create(null);
 
-
   constructor(...defs) {
-    if (OnOffAttrObserver.singleton)
-      throw new Error("OnOffAttrObserver is a singleton class. Use OnOffAttrObserver.singleton to access the instance.");
-    OnOffAttrObserver.singleton = this;
+    if (AttrOnOff.#singleton)
+      throw new Error("AttrOnOff is a singleton class. You can only create one once.");
+    AttrOnOff.#singleton = this;
     for (let { name, on, off } of defs)
       this.observe({ name, on, off });
     monkeyPatchHtmlMutations(this.on.bind(this), this.off.bind(this));
     for (let el of document.getElementsByTagName("*"))
-      for (let attr of el.attributes)
-        this.on(attr);
-    document.readyState === "loading" && document.addEventListener("DOMContentLoaded", () => {
-      for (let el of document.getElementsByTagName("*"))
-        for (let attr of el.attributes)
-          this.on(attr);
+      for (let at of el.attributes)
+        this.on(at);
+    if (document.readyState !== "loading")
+      return;
+    document.addEventListener("DOMContentLoaded", () => {
+      for (let el of document.getElementsByTagName("*")) {
+        if (AttrOnOff.PORTAL in el.attributes[0])
+          continue;
+        for (let at of el.attributes)
+          this.on(at);
+      }
     });
   }
 
   on(at) {
-    if (!at[OnOffAttrObserver.PORTAL]) {
-      const portal = at.name.substring(0, at.name.search(/[_.:]/));
-      Object.assign(at, { [OnOffAttrObserver.PORTAL]: portal }, this.Defs[portal]);
+    if (!at[AttrOnOff.PORTAL]) {
+      const portal = at.name.substring(0, at.name.search(/[_.:$]/));
+      Object.assign(at, { [AttrOnOff.PORTAL]: portal }, this.Defs[portal]);
     }
-    if (!at[OnOffAttrObserver.ON])
+    if (!at[AttrOnOff.ON])
       return this.noOn.add(at);
     this.onTasks.add(at);
     if (this.onTasks.size > 1)
@@ -205,7 +256,7 @@ class OnOffAttrObserver {
       const tasks = new Set(this.onTasks);
       for (let at of tasks)
         try {
-          at[OnOffAttrObserver.ON]();
+          at[AttrOnOff.ON]();
         } catch (e) {
           errorHandler(at, "ON", e);
         }
@@ -215,7 +266,7 @@ class OnOffAttrObserver {
 
   off(at) {
     this.noOn.delete(at);
-    if (!at[OnOffAttrObserver.OFF])
+    if (!at[AttrOnOff.OFF])
       return;
     this.offTasks.add(at);
     if (this.offTasks.size > 1)
@@ -223,7 +274,7 @@ class OnOffAttrObserver {
     queueMicrotask(_ => {
       for (let at of this.offTasks)
         try {
-          at[OnOffAttrObserver.OFF]();
+          at[AttrOnOff.OFF]();
         } catch (e) {
           errorHandler(at, "OFF", e);
         }
@@ -240,9 +291,9 @@ class OnOffAttrObserver {
       throw new Error(`Invalid on() for portal: ${name}`);
     if (off && typeof off !== "function")
       throw new Error(`Invalid off() for portal: ${name}`);
-    const Def = this.Defs[name] = { [OnOffAttrObserver.ON]: on, [OnOffAttrObserver.OFF]: off };
+    const Def = this.Defs[name] = { [AttrOnOff.ON]: on, [AttrOnOff.OFF]: off };
     for (let at of this.noOn)
-      if (at[OnOffAttrObserver.PORTAL] === name) {
+      if (at[AttrOnOff.PORTAL] === name) {
         Object.assign(at, Def);
         this.noOn.delete(at);
         this.on(at);
