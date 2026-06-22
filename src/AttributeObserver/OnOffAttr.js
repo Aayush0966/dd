@@ -38,11 +38,15 @@ export class IterableWeakSet {
     for (let wr of this.#wrToItem)
       if (wr.deref() === undefined)
         this.#wrToItem.delete(wr);
-    return this;
   }
 
-  get size() { return this.cleanup().#wrToItem.size; }
-  get roughSize() { return this.#wrToItem.size; }
+  get size() {
+    this.cleanup();
+    return this.#wrToItem.size;
+  }
+  get roughSize() { 
+    return this.#wrToItem.size; 
+  }
 }
 
 function walkDocumentAttributes(callback) {
