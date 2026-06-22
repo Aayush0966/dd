@@ -1,3 +1,5 @@
+const errorHandler = (...args) => console.error(...args); //framework error handling
+
 export class IterableWeakSet {
   #wrToItem = new Set();
   #itemToWr = new WeakMap();
@@ -43,6 +45,9 @@ export class IterableWeakSet {
   get roughSize() { return this.#wrToItem.size; }
 }
 
+// 1. when an attribute is added to an element, if the attribute has an ON reaction, run it.
+// 2. when an attribute is removed from an element, if the attribute has an OFF reaction, run it.
+// 3. you can't setAttributeNode on an element. This means that an attribute can never be moved from one element to another.
 function monkeyPatchHtmlMutations(onElement, offElement) {
 
   function onCreateRoot(root) {
@@ -221,7 +226,7 @@ export class AttrOnOff {
     AttrOnOff.#singleton = this;
     for (let { name, on, off } of defs)
       this.observe({ name, on, off });
-    monkeyPatchHtmlMutations(this.on.bind(this), this.off.bind(this));
+    monkeyPatchHtmlMutations(at => this.on(at), at => this.off(at));
     for (let el of document.getElementsByTagName("*"))
       for (let at of el.attributes)
         this.on(at);
@@ -234,7 +239,7 @@ export class AttrOnOff {
         for (let at of el.attributes)
           this.on(at);
       }
-    });
+    }, { once: true });
   }
 
   on(at) {
@@ -296,45 +301,38 @@ export class AttrOnOff {
   }
 }
 
-//// DomRelationship ////
+//// DomRelationship (weak)!////
+//// element a => function that defines a location  => element b (or a list of element bs) ////
+const RELATIONS = new Set();
+const MO = new MutationObserver(function task() {
+  for (const rel of RELATIONS) {
+    const a = rel.a.deref();
+    if (a === undefined) {
+      removeRelationship(rel);
+      continue;
+    }
+    if (!a.isConnected)
+      continue;
+    const newB = rel.checkB(a);
+    if (newB === false)
+      continue;
+    rel.callback(newB);
+  }
+});
 
-const { addRelationship, removeRelationship } = (() => {
-  const RELATIONS = new Set();
-  let active = false;
-  function triggerTask() {
-    if (active) return;
-    active = true;
-    queueMicrotask(() => {
-      active = false;
-      for (const rel of RELATIONS) {
-        const a = rel.a.deref();
-        if (a === undefined) {
-          removeRelationship(rel);
-          continue;
-        }
-        if (!a.isConnected)
-          continue;
-        const newB = rel.checkB(a);
-        if (newB === false)
-          continue;
-        rel.callback(newB);
-      }
-    });
-  }
+function addRelationship(rel) {
+  RELATIONS.add(rel);
+  if (RELATIONS.size === 1)
+    MO.observe(document, { childList: true, subtree: true });
+}
+function removeRelationship(rel) {
+  RELATIONS.delete(rel);
+  if (RELATIONS.size === 0)
+    MO.disconnect();
+}
 
-  const MO = new MutationObserver(triggerTask);
-  function addRelationship(rel) {
-    RELATIONS.add(rel);
-    if (RELATIONS.size === 1)
-      MO.observe(document, { childList: true, subtree: true });
-  }
-  function removeRelationship(rel) {
-    RELATIONS.delete(rel);
-    if (RELATIONS.size === 0)
-      MO.disconnect();
-  }
-  return { addRelationship, removeRelationship };
-})();
+const BUS = document.createTextNode("");
+MO.observe(BUS, { characterData: true });
 
 export class DomRelationship {
   constructor(a, aToB, callback) {
@@ -346,7 +344,8 @@ export class DomRelationship {
     this.callback = callback;
     this.b = null;
     addRelationship(this);
-    a.isConnected && triggerTask();
+    if (a.isConnected)
+      BUS.data = BUS.data === "1" ? "0" : "1";
   }
 
   checkB(a) {
@@ -354,13 +353,13 @@ export class DomRelationship {
     try {
       newB = this.aToB(a);
     } catch (e) {
-      //framework error handling
+      errorHandler(e);
     }
     const b = this.b?.deref();
     if (b === newB) return false;
     if (newB == null) return this.b = null;
     if (newB instanceof Node) { this.b = new WeakRef(newB); return newB; }
-    throw new Error(`Invalid Node DomRelationship: aToB() must return a Node or null.`);
+    errorHandler(new Error(`Invalid Node DomRelationship: aToB() must return a Node or null.`));
   }
 
   abort() {
@@ -385,7 +384,7 @@ export class ArrayDomRelationship extends DomRelationship {
       if (newB && b) {
         let i = 0;
         for (const x of newB)
-          if (b[i++].deref() !== x) {
+          if (b[i++]?.deref() !== x) {
             newB = Array.from(newB);
             this.b = newB.map(n => new WeakRef(n));
             return newB;
@@ -399,7 +398,7 @@ export class ArrayDomRelationship extends DomRelationship {
       }
       throw new Error("Invalid iterable DomRelationship: aToB() must return an iterable or nullish.");
     } catch (e) {
-      //framework error handling
+      errorHandler(e);
     }
   }
 }
