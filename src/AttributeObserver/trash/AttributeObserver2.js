@@ -1,4 +1,4 @@
-class IterableWeakSet {
+export class IterableWeakSet {
   #wrToItem = new Set();
   #itemToWr = new WeakMap();
   #finalRegistry = new FinalizationRegistry(wr => this.#wrToItem.delete(wr));
@@ -60,7 +60,6 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
       onCreateRoot(el);
     return res;
   }
-
   const outerHTMLsetter = og => function outerHTMLsetter(...args) {
     const parent = this.parentNode;
     const sibs = new Set(parent.children);
@@ -70,7 +69,6 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
         onCreateRoot(el);
     return res;
   }
-
   const insertAdjacentHTML_DD = og => function insertAdjacentHTML_DD(position, ...args) {
     position = typeof position === "string" ? position.toLowerCase() : position;
     if (position === "afterbegin") {
@@ -106,13 +104,11 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
     }
     return og.call(this, position, ...args); //let the og fail in its own way
   }
-
   const cloneNode_DD = og => function cloneNode_DD(...args) {
     const res = og.call(this, ...args);
     onCreateRoot(res);
     return res;
   }
-
   const setAttribute_DD = og => function setAttribute_DD(name, value) {
     const res = og.call(this, name, value);
     const at = this.getAttributeNode(name);
@@ -141,7 +137,6 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
     if (old && !now) offElement(old);
     return res;
   }
-
 
   const Methods = [
     [Element.prototype, "insertAdjacentHTML", insertAdjacentHTML_DD],
@@ -209,7 +204,7 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
   });
 }
 
-class AttrOnOff {
+export class AttrOnOff {
 
   static ON = Symbol("on");
   static OFF = Symbol("off");
@@ -283,7 +278,7 @@ class AttrOnOff {
   }
 
   observe({ name, on, off }) {
-    if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(name))
+    if (!/^[a-z][a-z0-9]*$/.test(name))
       throw new Error(`Invalid portal name: ${name}`);
     if (!on)
       throw new Error(`Missing on() for portal: ${name}`);

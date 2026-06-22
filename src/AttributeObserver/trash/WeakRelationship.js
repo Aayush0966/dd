@@ -43,7 +43,7 @@ function monkeyPatchJsMutations(onPotentialChange) {
   }
 }
 
-class WeakRelationship {
+export class WeakRelationship {
 
   static relationships = new Set();
   static #isPatched;

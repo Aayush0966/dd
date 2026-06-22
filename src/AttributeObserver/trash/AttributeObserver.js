@@ -48,10 +48,10 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
   function onCreateRoot(root) {
     if (root instanceof Element)
       for (let at of root.attributes)
-        onElement(at);
+        onElement.add(at);
     for (let el of root.getElementsByTagName("*"))
       for (let at of el.attributes)
-        onElement(at);
+        onElement.add(at);
   }
 
   const innerHTMLsetter = og => function innerHTMLsetter(...args) {
@@ -116,23 +116,13 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
   const setAttribute_DD = og => function setAttribute_DD(name, value) {
     const res = og.call(this, name, value);
     const at = this.getAttributeNode(name);
-    onElement(at);
-    return res;
-  }
-  const setAttributeNode_DD = og => function setAttributeNode_DD(at) {
-    const res = og.call(this, at);
-    onElement(at);
+    onElement.add(at);
     return res;
   }
   const removeAttribute_DD = og => function removeAttribute_DD(name) {
     const at = this.getAttributeNode(name);
     const res = og.call(this, name);
-    at && offElement(at);
-    return res;
-  }
-  const removeAttributeNode_DD = og => function removeAttributeNode_DD(at) {
-    const res = og.call(this, at);
-    at && offElement(at);
+    at && offElement.add(at);
     return res;
   }
 
@@ -148,27 +138,35 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
   Object.defineProperty(Element.prototype, "outerHTML", { set: outerHTMLsetter(OG.set), get: OG.get });
   OG = Object.getOwnPropertyDescriptor(Element.prototype, "setAttribute");
   Object.defineProperty(Element.prototype, "setAttribute", { value: setAttribute_DD(OG.value) });
-  OG = Object.getOwnPropertyDescriptor(Element.prototype, "setAttributeNode");
-  Object.defineProperty(Element.prototype, "setAttributeNode", { value: setAttributeNode_DD(OG.value) });
   OG = Object.getOwnPropertyDescriptor(Element.prototype, "removeAttribute");
   Object.defineProperty(Element.prototype, "removeAttribute", { value: removeAttribute_DD(OG.value) });
-  OG = Object.getOwnPropertyDescriptor(Element.prototype, "removeAttributeNode");
-  Object.defineProperty(Element.prototype, "removeAttributeNode", { value: removeAttributeNode_DD(OG.value) });
 
   //deprecate the namespace versions since they are not supported by DoubleDots and only add complexity to the implementation
-  const setAttributeNodeNS_DD = () => { throw new Error("setAttributeNodeNS is not supported by DoubleDots."); }
+  const setAttributeNode_DD = () => { throw new Error("setAttributeNode is not supported by DoubleDots."); }
+  const hasAttributeNode = () => { throw new Error("hasAttributeNode is not supported by DoubleDots."); }
+  const removeAttributeNode = () => { throw new Error("removeAttributeNode is not supported by DoubleDots."); }
   const setAttributeNS_DD = () => { throw new Error("setAttributeNS is not supported by DoubleDots."); }
   const hasAttributeNS = () => { throw new Error("hasAttributeNS is not supported by DoubleDots."); }
-  const hasAttributeNodeNS = () => { throw new Error("hasAttributeNodeNS is not supported by DoubleDots."); }
   const removeAttributeNS = () => { throw new Error("removeAttributeNS is not supported by DoubleDots."); }
+  const setAttributeNodeNS_DD = () => { throw new Error("setAttributeNodeNS is not supported by DoubleDots."); }
+  const hasAttributeNodeNS = () => { throw new Error("hasAttributeNodeNS is not supported by DoubleDots."); }
   const removeAttributeNodeNS = () => { throw new Error("removeAttributeNodeNS is not supported by DoubleDots."); }
-  Object.defineProperty(Element.prototype, "setAttributeNodeNS", { value: setAttributeNodeNS_DD });
+  Object.defineProperty(Element.prototype, "setAttributeNode", { value: setAttributeNode_DD });
+  Object.defineProperty(Element.prototype, "hasAttributeNode", { value: hasAttributeNode });
+  Object.defineProperty(Element.prototype, "removeAttributeNode", { value: removeAttributeNode });
   Object.defineProperty(Element.prototype, "setAttributeNS", { value: setAttributeNS_DD });
   Object.defineProperty(Element.prototype, "hasAttributeNS", { value: hasAttributeNS });
-  Object.defineProperty(Element.prototype, "hasAttributeNodeNS", { value: hasAttributeNodeNS });
   Object.defineProperty(Element.prototype, "removeAttributeNS", { value: removeAttributeNS });
+  Object.defineProperty(Element.prototype, "setAttributeNodeNS", { value: setAttributeNodeNS_DD });
+  Object.defineProperty(Element.prototype, "hasAttributeNodeNS", { value: hasAttributeNodeNS });
   Object.defineProperty(Element.prototype, "removeAttributeNodeNS", { value: removeAttributeNodeNS });
 }
+const OnElements = new IterableWeakSet();
+for (let el of document.getElementsByTagName('*'))
+  for (let at of el.attributes)
+    OnElements.add(at);
+
+const OffElements = new IterableWeakSet();
 
 function domAttributes() {
   const attrs = [];
@@ -186,25 +184,106 @@ function domAttributes() {
           attrs2.push(at);
     resolver(attrs2);
   }, { once: true }));
-  return { attrs, promiseOfFutureAttrs: promise };
+  return { attrs, coming: promise };
 }
 
+const PortalNames = new WeakMap();
+function getPortalName(at) {
+  let n = PortalNames.get(at);
+  if (!n) PortalNames.set(at, n = at.name.split(/[_.:]/)[0]);
+  return n;
+}
+
+class MicroTaskScheduler {
+  constructor() {
+    this.OnElements = new Set();
+    this.OffElements = new Set();
+    this.active = false;
+
+    this.seen = new WeakSet();
+    this.portalNames = new WeakMap();
+
+
+    const { attrs, coming } = domAttributes();
+    for (let at of attrs)
+      globalOnElement(at);
+    coming?.then(attrs2 => {
+      for (let at of attrs2)
+        globalOnElement(at);
+    });
+
+  }
+
+  setUpTask() {
+    this.active = true;
+    queueMicrotask(_ => {
+      try {
+        this.bigCb?.(this.OnElements, this.OffElements);
+      } catch (e) {
+        console.error("Observer Error in big callback:", e);
+      }
+      this.OnElements.clear();
+      this.OffElements.clear();
+      this.active = false;
+    });
+  }
+
+  onElementQueue(at) {
+    this.active || this.setUpTask();
+    this.OnElements.add(at);
+  }
+  offElementQueue(at) {
+    this.active || this.setUpTask();
+    this.OffElements.add(at);
+  }
+}
+
+
+
+const Attribs = {};
+const onElementCallbacks = {};
+const offElementCallbacks = {};
+const seen = new WeakSet();
+
+function globalOnElement(at, portalName = getPortalName(at)) {
+  if (seen.has(at)) return;
+  seen.add(at);
+  (Attribs[portalName] ??= new IterableWeakSet()).add(at);
+  return onElementCallbacks[portalName]?.(at);
+}
+
+
+function globalOffElement(at, portalName = getPortalName(at)) {
+  return offElementCallbacks[portalName]?.(at);
+}
+
+class AttributeObserver {
+  observe(Def) {
+    const { portal, onElement, offElement, onElementAgain } = Def;
+    if (!portal.matches(/^[a-zA-Z][a-zA-Z0-9]*$/))
+      throw new Error(`Invalid portal name: ${portal}`);
+    if (!onElement)
+      throw new Error(`Missing onElement callback for portal: ${portal}`);
+    if (typeof onElement !== "function")
+      throw new Error(`Invalid onElement callback for portal: ${portal}`);
+    if (offElement && typeof offElement !== "function")
+      throw new Error(`Invalid offElement callback for portal: ${portal}`);
+    if (onElementAgain && typeof onElementAgain !== "function")
+      throw new Error(`Invalid onElementAgain callback for portal: ${portal}`);
+    onElementCallbacks[portal] = onElement;
+    offElementCallbacks[portal] = offElement;
+    onElementAgainCallbacks[portal] = onElementAgain;
+    const attribs = Attribs[portal];
+    if (attribs)
+      for (let at of attribs)
+        globalOnElement(at, portal);
+  }
+}
+
+monkeyPatchHtmlMutations(globalOnElement, globalOffElement, globalOnElementPossiblyAgain);
 
 const OBSERVERS = new Map();
 let CBS;
-let ATTRS = [];
-
-function onCreateAttribute(at) {
-  if (ATTRS.length)
-    return ATTRS.push(at);
-  ATTRS.push(at);
-  queueMicrotask(_ => {
-    Object.freeze(ATTRS);
-    for (let cb of CBS)
-      cb(ATTRS);
-    ATTRS = [];
-  });
-}
 
 monkeyPatchHtmlMutations(onCreateAttribute);
 
