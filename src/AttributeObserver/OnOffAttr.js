@@ -45,6 +45,22 @@ export class IterableWeakSet {
   get roughSize() { return this.#wrToItem.size; }
 }
 
+function walkDocumentAttributes(callback) {
+  const seen = new WeakSet();
+  const walker = document.createTreeWalker(document, NodeFilter.SHOW_ELEMENT);
+  for (let el; el = walker.nextNode(); seen.add(el))
+    for (let i = 0; i < el.attributes.length; i++)
+      callback(el.attributes[i]);
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", () => {
+      const walker = document.createTreeWalker(document, NodeFilter.SHOW_ELEMENT);
+      for (let el; el = walker.nextNode();)
+        if (!seen.has(el))
+          for (let i = 0; i < el.attributes.length; i++)
+            callback(el.attributes[i]);
+    }, { once: true });
+}
+
 // 1. when an attribute is added to an element, if the attribute has an ON reaction, run it.
 // 2. when an attribute is removed from an element, if the attribute has an OFF reaction, run it.
 // 3. you can't setAttributeNode on an element. This means that an attribute can never be moved from one element to another.
@@ -52,11 +68,12 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
 
   function onCreateRoot(root) {
     if (root instanceof Element)
-      for (let at of root.attributes)
-        onElement(at);
-    for (let el of root.getElementsByTagName("*"))
-      for (let at of el.attributes)
-        onElement(at);
+      for (let i = 0; i < root.attributes.length; i++)
+        onElement(root.attributes[i]);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    for (let el; el = walker.nextNode();)
+      for (let i = 0; i < el.attributes.length; i++)
+        onElement(el.attributes[i]);
   }
 
   const innerHTMLsetter = og => function innerHTMLsetter() {
@@ -227,17 +244,7 @@ export class AttrOnOff {
     for (let { name, on, off } of defs)
       this.observe({ name, on, off });
     monkeyPatchHtmlMutations(at => this.on(at), at => this.off(at));
-    const firsts = new Set(document.getElementsByTagName("*"));
-    for (let el of firsts)
-      for (let at of el.attributes)
-        this.on(at);
-    if (document.readyState === "loading")
-      document.addEventListener("DOMContentLoaded", () => {
-        for (let el of document.getElementsByTagName("*"))
-          if (!firsts.has(el))
-            for (let at of el.attributes)
-              this.on(at);
-      }, { once: true });
+    walkDocumentAttributes(at => this.on(at));
   }
 
   on(at) {
