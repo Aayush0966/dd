@@ -59,17 +59,17 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
         onElement(at);
   }
 
-  const innerHTMLsetter = og => function innerHTMLsetter(...args) {
-    const res = og.call(this, ...args);
+  const innerHTMLsetter = og => function innerHTMLsetter() {
+    const res = og.apply(this, arguments);
     for (let el of this.children)
       onCreateRoot(el);
     return res;
   }
-  const outerHTMLsetter = og => function outerHTMLsetter(...args) {
+  const outerHTMLsetter = og => function outerHTMLsetter() {
     const parent = this.parentNode;
-    const sibs = new Set(parent.children);
-    const res = og.call(this, ...args);
-    for (let el of parent.children)
+    const sibs = new Set(parent?.children || []);
+    const res = og.apply(this, arguments);
+    for (let el of parent?.children || [])
       if (!sibs.has(el))
         onCreateRoot(el);
     return res;
@@ -78,7 +78,7 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
     position = typeof position === "string" ? position.toLowerCase() : position;
     if (position === "afterbegin") {
       const count = this.children.length;
-      const res = og.call(this, position, ...args);
+      const res = og.apply(this, arguments);
       const added = this.children.length - count;
       for (let i = 0; i < added; i++)
         onCreateRoot(this.children[i]);
@@ -86,7 +86,7 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
     }
     else if (position === "beforeend") {
       const count = this.children.length;
-      const res = og.call(this, position, ...args);
+      const res = og.apply(this, arguments);
       const added = this.children.length - count;
       for (let i = 0; i < added; i++)
         onCreateRoot(this.children[count + i]);
@@ -94,7 +94,7 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
     }
     else if (position === "beforebegin" && this.parentNode) {
       const prevSib = this.previousElementSibling;
-      const res = og.call(this, position, ...args);
+      const res = og.apply(this, arguments);
       let x = prevSib?.nextElementSibling ?? this.parentNode.firstElementChild;
       for (; x !== this; x = x.nextElementSibling)
         onCreateRoot(x);
@@ -102,41 +102,41 @@ function monkeyPatchHtmlMutations(onElement, offElement) {
     }
     else if (position === "afterend" && this.parentNode) {
       let nextSib = this.nextElementSibling;
-      const res = og.call(this, position, ...args);
+      const res = og.apply(this, arguments);
       for (let el = this.nextElementSibling; el && el !== nextSib; el = el.nextElementSibling)
         onCreateRoot(el);
       return res;
     }
-    return og.call(this, position, ...args); //let the og fail in its own way
+    return og.apply(this, arguments); //let original method fail in its own way
   }
-  const cloneNode_DD = og => function cloneNode_DD(...args) {
-    const res = og.call(this, ...args);
+  const cloneNode_DD = og => function cloneNode_DD() {
+    const res = og.apply(this, arguments);
     onCreateRoot(res);
     return res;
   }
-  const setAttribute_DD = og => function setAttribute_DD(name, value) {
-    const res = og.call(this, name, value);
+  const setAttribute_DD = og => function setAttribute_DD(name) {
+    const res = og.apply(this, arguments);
     const at = this.getAttributeNode(name);
     onElement(at);
     return res;
   }
   const removeAttribute_DD = og => function removeAttribute_DD(name) {
     const at = this.getAttributeNode(name);
-    const res = og.call(this, name);
+    const res = og.apply(this, arguments);
     at && offElement(at);
     return res;
   }
-  const toggleAttribute_DD = og => function toggleAttribute_DD(name, force) {
+  const toggleAttribute_DD = og => function toggleAttribute_DD(name) {
     const old = this.getAttributeNode(name);
-    const res = og.call(this, name, force);
+    const res = og.apply(this, arguments);
     const now = this.getAttributeNode(name);
     if (!old && now) onElement(now);
     if (old && !now) offElement(old);
     return res;
   }
-  const reflectingProperty_DD = (og, attr) => function wrapSet(value) {
+  const reflectingProperty_DD = (og, attr) => function wrapSet() {
     const old = this.getAttributeNode(attr);
-    const res = og.call(this, value);
+    const res = og.apply(this, arguments);
     const now = this.getAttributeNode(attr);
     if (!old && now) onElement(now);
     if (old && !now) offElement(old);
@@ -227,24 +227,22 @@ export class AttrOnOff {
     for (let { name, on, off } of defs)
       this.observe({ name, on, off });
     monkeyPatchHtmlMutations(at => this.on(at), at => this.off(at));
-    for (let el of document.getElementsByTagName("*"))
+    const firsts = new Set(document.getElementsByTagName("*"));
+    for (let el of firsts)
       for (let at of el.attributes)
         this.on(at);
-    if (document.readyState !== "loading")
-      return;
-    document.addEventListener("DOMContentLoaded", () => {
-      for (let el of document.getElementsByTagName("*")) {
-        if (AttrOnOff.PORTAL in el.attributes[0])
-          continue;
-        for (let at of el.attributes)
-          this.on(at);
-      }
-    }, { once: true });
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", () => {
+        for (let el of document.getElementsByTagName("*"))
+          if (!firsts.has(el))
+            for (let at of el.attributes)
+              this.on(at);
+      }, { once: true });
   }
 
   on(at) {
     if (!at[AttrOnOff.PORTAL]) {
-      const portal = at.name.substring(0, at.name.search(/[_.:$]/));
+      const portal = at.name.substring(0, at.name.search(/[_.:]|$/));
       Object.assign(at, { [AttrOnOff.PORTAL]: portal }, this.Defs[portal]);
     }
     if (!at[AttrOnOff.ON])
