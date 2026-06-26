@@ -57,7 +57,7 @@ class WeakWeakHashMap {
     if (ak.length !== bk.length)
       return false;
     for (let i = 0; i < ak.length; i++)
-      if (ak[i] !== bk[i] || (a[ak[i]] !== b[bk[i]] && !isNaN(a[ak[i]]) && !isNaN(b[bk[i]])))//identical props inside Composite objects must be the same objects.
+      if (ak[i] !== bk[i] || !Object.is(a[ak[i]], b[bk[i]]))//identical props inside Composite objects must be the same objects.
         return false;
     return Array.isArray(a) !== Array.isArray(b) ? false : true;
   }
@@ -128,8 +128,8 @@ function CompositeImpl(obj, seen) {
   seen.add(obj);
 
   let hash = isArray ?
-    Math.imul(Math.imul(hash ^ HASHTAGS.array, 0x01000193) ^ obj.length, 0x01000193) :
-    Math.imul(hash ^ HASHTAGS.objectLiteral, 0x01000193);
+    Math.imul(Math.imul(0x811c9dc5 ^ HASHTAGS.array, 0x01000193) ^ obj.length, 0x01000193) :
+    Math.imul(0x811c9dc5 ^ HASHTAGS.objectLiteral, 0x01000193);
   let dirty = false;
   const keys = Object.keys(obj);
   for (let i = 0; i < keys.length; i++) {
