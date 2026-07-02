@@ -1,12 +1,9 @@
-let DOTS = Object.create(null);
-let PORTALS = Object.create(null);
-setInterval(_ => {  //very crude GC
-  Object.keys(DOTS).length > 5000 && (DOTS = Object.create(null));
-  Object.keys(PORTALS).length > 5000 && (PORTALS = Object.create(null));
-}, 5000);
+import { parseAttributeName } from "./PortalNameParser.js";
+
 Object.defineProperties(Attr.prototype, {
-  dots: { get: function () { return DOTS[this.name] ??= this.name.split(":"); } },
-  trigger: { get: function () { return PORTALS[this.dots[0]] ??= this.dots[0].split(/[._]/)[0]; } },
+  portalParts: { get: function () { return parseAttributeName(this.name); } },
+  dots: { get: function () { return this.portalParts.rawSteps; } },
+  trigger: { get: function () { return this.portalParts.trigger.portal; } },
 });
 
 class MicroFrame {
@@ -51,43 +48,6 @@ class MicroFrame {
   }
 
   static make(at) { return new MicroFrame(at); }
-}
-
-class ConnectFrame {
-  #state;
-  #value;
-  constructor(type, at, value, portal) {
-    this.type = type;
-    this.#state = type;
-    this.at = at;
-    this.portal = portal;
-    this.#value = value;
-  }
-
-  async update() {
-    this.#state = "awaiting value";
-    try {
-      this.#value = await this.#value;
-      this.#state = this.type;
-    } catch (err) {
-      this.#value = err;
-      this.#state = "error onFirstConnect";
-    }
-  }
-  static make(type, portal, at, value) {
-    const res = new ConnectFrame(type, at, value, portal);
-    if (value instanceof Promise)
-      res.update();
-    return res;
-  }
-  getState() {
-    return {
-      type: this.type,
-      at: this.at,
-      state: this.#state,
-      value: this.#value,
-    };
-  }
 }
 
 export class EventLoopCube {

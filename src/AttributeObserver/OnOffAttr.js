@@ -1,3 +1,5 @@
+import { getTriggerName } from "./PortalNameParser.js";
+
 const errorHandler = (...args) => console.error(...args); //framework error handling
 
 export class IterableWeakSet {
@@ -239,21 +241,34 @@ export class AttrOnOff {
   onTasks = new Set();
   offTasks = new Set();
   noOn = new IterableWeakSet();
-  Defs = Object.create(null);
+  Defs = Object.create(null);  
 
-  constructor(...defs) {
+  constructor() {
     if (AttrOnOff.#singleton)
       throw new Error("AttrOnOff is a singleton class. You can only create one once.");
     AttrOnOff.#singleton = this;
-    for (let { name, on, off } of defs)
-      this.observe({ name, on, off });
     monkeyPatchHtmlMutations(at => this.on(at), at => this.off(at));
     walkDocumentAttributes(at => this.on(at));
   }
 
+  // Register a portal's trigger lifecycle (on/off). Called by PortalsMap.define().
+  // Activates any attributes parked in noOn that were waiting for this portal.
+  define(name, on, off) {
+    const Def = this.Defs[name] = {
+      [AttrOnOff.ON]: on,
+      [AttrOnOff.OFF]: off,
+    };
+    for (let at of this.noOn)
+      if (at[AttrOnOff.PORTAL] === name) {
+        Object.assign(at, Def);
+        this.noOn.delete(at);
+        this.on(at);
+      }
+  }
+
   on(at) {
     if (!at[AttrOnOff.PORTAL]) {
-      const portal = at.name.substring(0, at.name.search(/[_.:]|$/));
+      const portal = getTriggerName(at.name);
       Object.assign(at, { [AttrOnOff.PORTAL]: portal }, this.Defs[portal]);
     }
     if (!at[AttrOnOff.ON])
@@ -289,24 +304,6 @@ export class AttrOnOff {
         }
       this.offTasks.clear();
     });
-  }
-
-  observe({ name, on, off }) {
-    if (!/^[a-z][a-z0-9]*$/.test(name))
-      throw new Error(`Invalid portal name: ${name}`);
-    if (!on)
-      throw new Error(`Missing on() for portal: ${name}`);
-    if (typeof on !== "function")
-      throw new Error(`Invalid on() for portal: ${name}`);
-    if (off && typeof off !== "function")
-      throw new Error(`Invalid off() for portal: ${name}`);
-    const Def = this.Defs[name] = { [AttrOnOff.ON]: on, [AttrOnOff.OFF]: off };
-    for (let at of this.noOn)
-      if (at[AttrOnOff.PORTAL] === name) {
-        Object.assign(at, Def);
-        this.noOn.delete(at);
-        this.on(at);
-      };
   }
 }
 
