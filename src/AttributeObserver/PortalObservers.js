@@ -1,5 +1,4 @@
 import { DomRelationship, IterableWeakSet } from "./OnOffAttr.js";
-import { parseAttributeName } from "./PortalNameParser.js";
 
 class IPortal {  
   //<div i:fetch:update_state="data.json">...</h1>  //runs at first startup
@@ -21,18 +20,18 @@ class IPortal {
 class AttrPortal {
   on() {
     this.AttrObserver = new MutationObserver(mrs => eventLoop.dispatch(this, mrs));
-    const [varName] = parseAttributeName(this.name).trigger.values;
+    const varName = this.name.split("_")[1];
     const attributeFilter = varName ? [varName] : undefined;
     this.AttrObserver.observe(this.ownerElement, { attributes: true, attributeFilter, attributeOldValue: true });
   }
   off() {
     this.AttrObserver.disconnect();
   }
-  reaction(NAME, parts) {      //:attr_active_true is a setter,    :attr_active is a getter
-    const [varName, val] = parts.values;
+  reaction(NAME) {      //:attr_active_true is a setter,    :attr_active is a getter
+    const [, varName, val] = this.name.split("_");
     return val ?
       function () { this.ownerElement.setAttribute(varName, val); } :
-      function () { return this.ownerElement.getAttribute(varName); };
+      function () { this.ownerElement.getAttribute(varName); };
   }
 }
 
@@ -79,6 +78,6 @@ Portals["content-box"] = Portals.resize;
 Portals["border-box"] = ResizePortalBorderBox;
 Portals["device-pixel-content-box"] = ResizePortalDevicePixelContentBox;
 Portals.intersection = IntersectionPortal;
-Portals["intersection-previous"] = IntersectionPortalPrevious;
+Portals.intersection_previous = IntersectionPortalPrevious;
 
 export { Portals };

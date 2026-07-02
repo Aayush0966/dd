@@ -1,5 +1,4 @@
 import { AttrOnOff } from "./OnOffAttr.js";
-import { parsePortalStep } from "./PortalNameParser.js";
 
 const Resolver = Symbol("resolver");
 const PromiseResolver = r => Object.assign(new Promise(f => r = f), { [Resolver]: r });
@@ -72,24 +71,23 @@ export class PortalsMap {
   }
 
   #resolveReaction(reactionName) {
-    const reactionParts = parsePortalStep(reactionName);
-    const portalName = reactionParts.portal;
+    const portalName = reactionName.substring(0, reactionName.search(/[_.:]|$/));
     const Def = this.#portals[portalName];
     if (Def)
-      return this.#makeReaction(Def, reactionName, portalName, reactionParts);
+      return this.#makeReaction(Def, reactionName, portalName);
     const request = this.#reactionRequests[portalName] ??= PromiseResolver();
     return request.then(Def =>
-      this.#reactionCache[reactionName] = this.#makeReaction(Def, reactionName, portalName, reactionParts));
+      this.#reactionCache[reactionName] = this.#makeReaction(Def, reactionName, portalName));
   }
 
-  #makeReaction(Def, reactionName, portalName, reactionParts) {
+  #makeReaction(Def, reactionName, portalName) {
     if (Def instanceof Error)
       return Def;
     const factory = Def.reaction;
     if (!factory)
       return new TypeError(`Portal '${portalName}': Reaction '${reactionName}': no reaction defined.`);
     try {
-      const reaction = factory.call(Def, reactionName, reactionParts);
+      const reaction = factory.call(Def, reactionName);
       return reaction instanceof Promise ?
         reaction.then(r => r, cause =>
           new TypeError(`Portal '${portalName}': Reaction '${reactionName}': ${cause.message}`, { cause })) :

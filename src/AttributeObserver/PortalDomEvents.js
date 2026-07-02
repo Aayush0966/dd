@@ -1,5 +1,3 @@
-import { parseAttributeName } from "./PortalNameParser.js";
-
 const DomEvents = ['touchstart', 'touchmove', 'touchend', 'touchcancel', 'beforexrselect', 'abort', 'beforeinput', 'beforematch', 'beforetoggle',
   'blur', 'cancel', 'canplay', 'canplaythrough', 'change', 'click', 'close', 'contentvisibilityautostatechange', 'contextlost', 'contextmenu',
   'contextrestored', 'cuechange', 'dblclick', 'drag', 'dragend', 'dragenter', 'dragleave', 'dragover', 'dragstart', 'drop', 'durationchange',
@@ -55,12 +53,12 @@ function Portal(TYPE, reaction) {
   return {
     [className]: class {
       on() {
-        this.ownerElement.addEventListener(TYPE, LISTENER, { passive: passive || parseAttributeName(this.name).trigger.values.includes("passive") });
+        this.ownerElement.addEventListener(TYPE, LISTENER, { passive: passive || this.name.includes("_passive") });
       }
       off() {
-        this.ownerElement.removeEventListener(TYPE, LISTENER, { passive: passive || parseAttributeName(this.name).trigger.values.includes("passive") });
+        this.ownerElement.removeEventListener(TYPE, LISTENER, { passive: passive || this.name.includes("_passive") });
       }
-      reaction() {
+      reaction(NAME) {
         return reaction ?? function () {
           this.ownerElement.dispatchEvent(new Event(TYPE, { bubbles, composed, cancelable: !passive }));
         };

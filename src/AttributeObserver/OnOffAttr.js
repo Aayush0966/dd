@@ -1,5 +1,3 @@
-import { getTriggerName } from "./PortalNameParser.js";
-
 const errorHandler = (...args) => console.error(...args); //framework error handling
 
 export class IterableWeakSet {
@@ -268,7 +266,7 @@ export class AttrOnOff {
 
   on(at) {
     if (!at[AttrOnOff.PORTAL]) {
-      const portal = getTriggerName(at.name);
+      const portal = at.name.substring(0, at.name.search(/[_.:]|$/));
       Object.assign(at, { [AttrOnOff.PORTAL]: portal }, this.Defs[portal]);
     }
     if (!at[AttrOnOff.ON])

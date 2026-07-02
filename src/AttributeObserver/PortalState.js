@@ -1,5 +1,4 @@
 import { IterableWeakSet } from "./OnOffAttr.js";
-import { parseAttributeName } from "./PortalNameParser.js";
 
 function deepEqual(obj1, obj2) {
   if (obj1 === obj2) return true;
@@ -73,17 +72,17 @@ class Store {
 class StatePortal {
 
   on() {
-    const { portal, values: props } = parseAttributeName(this.name).trigger;
-    this.store = Store.getStore(portal);
+    const [NAME, ...props] = this.name.split(":")[0].split("_");
+    this.store = Store.getStore(NAME);
     this.store.add(this, props);
   }
   off() {
     this.store.delete(this);
   }
-  reaction(FullName, parts) {
-    const [prop] = parts.values;
-    const store = Store.getStore(parts.portal);
-    if (!prop) throw new TypeError(`StatePortal ${parts.portal} has no property specified in reaction ${FullName}.`);
+  reaction(FullName) {
+    const [NAME, prop] = FullName.split("_");
+    const store = Store.getStore(NAME);
+    if (!prop) throw new TypeError(`StatePortal ${NAME} has no property specified in reaction ${FullName}.`);
     return function (value) { store.updateState(prop, value); }
   }
 }

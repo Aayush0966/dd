@@ -1,9 +1,12 @@
-import { parseAttributeName } from "./PortalNameParser.js";
-
+let DOTS = Object.create(null);
+let PORTALS = Object.create(null);
+setInterval(_ => {  //very crude GC
+  Object.keys(DOTS).length > 5000 && (DOTS = Object.create(null));
+  Object.keys(PORTALS).length > 5000 && (PORTALS = Object.create(null));
+}, 5000);
 Object.defineProperties(Attr.prototype, {
-  portalParts: { get: function () { return parseAttributeName(this.name); } },
-  dots: { get: function () { return this.portalParts.rawSteps; } },
-  trigger: { get: function () { return this.portalParts.trigger.portal; } },
+  dots: { get: function () { return DOTS[this.name] ??= this.name.split(":"); } },
+  trigger: { get: function () { return PORTALS[this.dots[0]] ??= this.dots[0].split(/[._]/)[0]; } },
 });
 
 class MicroFrame {
