@@ -1,3 +1,4 @@
+//I am not sure that we need a maxLimit on this one.. 
 function memoizeAsync(fn, maxLimit = 10000) {
   let cache = Object.create(null);
   let size = 0;
@@ -27,49 +28,53 @@ function memoizeAsync(fn, maxLimit = 10000) {
   };
 }
 
-const Resolver = Symbol("Resolver");
+import { AttrOnOff } from "./OnOffAttr.js";
+
+const Resolver = Symbol("resolver");
 const PromiseResolver = r => Object.assign(new Promise(f => r = f), { [Resolver]: r });
 
 function checkFunction(func) {
   if (typeof func !== "function")
     return `not a function, but a ` + typeof func;
   let txt = func.toString();
-  if (!/^(async\s+|)(\(|[^([]+=)/.test(txt))  //alternative a
+  if (!/^(async\s+|)(\(|[^([]+=)/.test(txt))
     return;
-  txt = txt.replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, ''); //remove comments
-  //ATT!! `${""}this` only works when "" is removed before ``
-  txt = txt.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '');   //remove "'-strings
-  txt = txt.replace(/(`)(?:(?=(\\?))\2.)*?\1/g, '');   //remove `strings
-  if (/\bthis\b/.test(txt))                      //the word this
+  txt = txt.replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, '');
+  txt = txt.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '');
+  txt = txt.replace(/(`)(?:(?=(\\?))\2.)*?\1/g, '');
+  if (/\bthis\b/.test(txt))
     return 'arrow function with "this"';
 }
 
-function verifyPortalDefinition(Portal) {
-  if (!(Portal instanceof Object))
-    throw `not an object, but a ` + typeof Portal;
-  let { onFirstConnect, onReConnect, onMove, onDisconnect, reaction } = Portal;
-  if (!onFirstConnect && !reaction)
-    throw `missing both .onFirstConnect and .reaction`;
-  if (!onFirstConnect && (onDisconnect || onReConnect || onMove))
-    throw `missing .onFirstConnect, but defining either onMove, onReConnect, or .onDisconnect.`;
-  if (onDisconnect && !onReConnect)
-    throw `missing .onReConnect, but defining .onDisconnect.`;
-  Portal = Object.freeze({ onFirstConnect, onDisconnect, onMove, onReConnect, reaction });
-  for (let [k, v] of Object.entries({ onFirstConnect, onDisconnect, onMove, onReConnect }))
-    if (v &&= checkFunction(v))
+function verifyPortalDefinition(name, { on, off, reaction }) {
+  if (!on && !reaction)
+    throw `missing both .on and .reaction`;
+  if (off && !on)
+    throw `missing .on, but defining .off`;
+  for (let [k, v] of Object.entries({ on, off }))
+    if (v &&= (v = checkFunction(v)))
       throw `.${k} is ${v}`;
-  return Portal;
+  if (reaction && typeof reaction !== "function")
+    throw `.reaction is not a function, but a ` + typeof reaction;
+  return Object.freeze({ name, on, off, reaction });
 }
 
 export class PortalMap {
 
+  #attrOnOff = new AttrOnOff();
   #portals = Object.create(null);
-  #portalRequests = Object.create(null);
-  #portalUnresolved = Object.create(null);
+  #portalUnresolved = Object.create(null); //portals and portals promises encountered
+  #reactionRequests = Object.create(null);
+  
+  constructor(Portals) {
+    for (const [name, Portal] of Object.entries(Portals))
+      this.define(name, Portal?.prototype?.on ? Portal.prototype : Portal); //so we can pass in class def objects.
+  }
 
   define(name, Portal) {
-    if (!name.match(/^[a-z][a-z0-9-]*$/))
-      throw new SyntaxError(`Illegal portal name: '${name}'.`);
+    if (!/^[a-z][a-zA-Z0-9]*$/.test(name))
+      throw new SyntaxError(`Portal definition names must be camelCase: '${name}'.`);
+    name = name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
     if (name in this.#portalUnresolved)
       throw new ReferenceError(`Trying to define portal twice: ${name}.`);
     this.#portalUnresolved[name] = Portal;
@@ -80,13 +85,14 @@ export class PortalMap {
     if (Portal instanceof Promise)
       return Portal.err(e => e).then(P => this.#definePortal(name, P));
     try {
-      this.#portals[name] = verifyPortalDefinition(Portal);
-      window.eventLoopCube?.connectPortal(name, this.#portals[name]);
+      Portal = this.#portals[name] = verifyPortalDefinition(name, Portal);
+      Portal.on && this.#attrOnOff.observe(Portal); //runs the on() (ie. trigger) for all existing attributes with this portal name sync!
     } catch (cause) {
-      this.#portals[name] = new TypeError(`Portal '${name}': ${cause.message}`, { cause });
+      this.#portals[name] = new TypeError(`Portal '${name}': ${cause.message ?? cause}`, { cause });
     } finally {
-      this.#portalRequests[name]?.[Resolver](this.#portals[name]);
-      delete this.#portalRequests[name];
+      const request = this.#reactionRequests[name];
+      delete this.#reactionRequests[name];
+      request?.[Resolver](this.#portals[name]); //runs all the microtasks awaiting the reaction.
     }
   }
 
@@ -95,12 +101,12 @@ export class PortalMap {
   }
 
   getWithCallback(portalName) {
-    return this.#portals[portalName] ?? (this.#portalRequests[portalName] ??= PromiseResolver());
+    return this.#portals[portalName] ?? (this.#reactionRequests[portalName] ??= PromiseResolver());
   }
 
   getReaction = memoizeAsync(reactionName => {
     const portalName = reactionName.split(/[._]/)[0];
-    const portal = this.#portals[portalName] ?? (this.#portalRequests[portalName] ??= PromiseResolver());
+    const portal = this.#portals[portalName] ?? (this.#reactionRequests[portalName] ??= PromiseResolver());
     return portal instanceof Promise ?
       portal.then(p => getReaction(p, reactionName, portalName)) :
       getReaction(portal, reactionName, portalName);
@@ -115,10 +121,10 @@ function getReaction(portal, reactionName, portalName) {
   try {
     const reaction = portal.reaction(reactionName);
     return reaction instanceof Promise ?
-      reaction.then(r => r, cause => new TypeError(`Portal '${portalName}': Reaction '${reactionName}': ${cause.message}`, { cause })) :
+      reaction.then(r => r, cause => new TypeError(`Portal '${portalName}': Reaction '${reactionName}': ${cause.message ?? cause}`, { cause })) :
       reaction;
   } catch (cause) {
-    return new TypeError(`Portal '${portalName}': Reaction '${reactionName}': ${cause.message}`, { cause });
+    return new TypeError(`Portal '${portalName}': Reaction '${reactionName}': ${cause.message ?? cause}`, { cause });
   }
 }
 
