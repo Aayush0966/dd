@@ -45,6 +45,8 @@ class ResizePortal {
 }
 class ResizePortalBorderBox extends ResizePortal { get box() { return "border-box"; } }
 class ResizePortalDevicePixelContentBox extends ResizePortal { get box() { return "device-pixel-content-box"; } }
+//todo i think that we can just use the this.portal in the on() 
+//     and then check if it is one of the allowed boxes, and if not use "content-box" as default.
 
 class IntersectionPortal {
   on() {
@@ -74,10 +76,10 @@ const Portals = Object.create(null);
 Portals.i = IPortal;
 Portals.attr = AttrPortal;
 Portals.resize = ResizePortal;
-Portals["content-box"] = Portals.resize;
-Portals["border-box"] = ResizePortalBorderBox;
-Portals["device-pixel-content-box"] = ResizePortalDevicePixelContentBox;
+Portals.contentBox = Portals.resize;
+Portals.borderBox = ResizePortalBorderBox;
+Portals.devicePixelContentBox = ResizePortalDevicePixelContentBox;
 Portals.intersection = IntersectionPortal;
-Portals.intersection_previous = IntersectionPortalPrevious;
+Portals.intersectionPrevious = IntersectionPortalPrevious; //we want to be able to do this!!
 
 export { Portals };
