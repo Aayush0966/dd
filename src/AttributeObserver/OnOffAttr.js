@@ -234,7 +234,6 @@ export class AttrOnOff {
 
   static ON = Symbol("on");
   static OFF = Symbol("off");
-  static PORTAL = Symbol("portal");
   static #singleton;
   onTasks = new Set();
   offTasks = new Set();
@@ -252,9 +251,9 @@ export class AttrOnOff {
   }
 
   on(at) {
-    if (!at[AttrOnOff.PORTAL]) {
+    if (!at.portal) {
       const portal = at.name.substring(0, at.name.search(/[_.:]|$/));
-      Object.assign(at, { [AttrOnOff.PORTAL]: portal }, this.Defs[portal]);
+      Object.assign(at, { portal }, this.Defs[portal]);
     }
     if (!at[AttrOnOff.ON])
       return this.noOn.add(at);
@@ -294,15 +293,13 @@ export class AttrOnOff {
   observe({ name, on, off }) {
     if (!/^[a-z][a-z0-9]*$/.test(name))
       throw new Error(`Invalid portal name: ${name}`);
-    if (!on)
-      throw new Error(`Missing on() for portal: ${name}`);
     if (typeof on !== "function")
       throw new Error(`Invalid on() for portal: ${name}`);
     if (off && typeof off !== "function")
       throw new Error(`Invalid off() for portal: ${name}`);
     const Def = this.Defs[name] = { [AttrOnOff.ON]: on, [AttrOnOff.OFF]: off };
     for (let at of this.noOn)
-      if (at[AttrOnOff.PORTAL] === name) {
+      if (at.portal === name) {
         Object.assign(at, Def);
         this.noOn.delete(at);
         this.on(at);
