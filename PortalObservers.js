@@ -1,6 +1,6 @@
 import { DomRelationship, IterableWeakSet } from "./OnOffAttr.js";
 
-class IPortal {  
+class IPortal {
   //<div i:fetch:update_state="data.json">...</h1>  //runs at first startup
   // <div i_:fetch:update_state_i="data.json">...</h1>  //runs immediately when created, even if not connected to the DOM
   on() {

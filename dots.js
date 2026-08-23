@@ -1,10 +1,10 @@
 import { EventLoopCube } from "./2_EventLoopCube.js";
 import { PortalMap } from "./1_PortalMap.js";
-import { Portals as DomEvents } from "./PortalDomEvents.js";
+import { Portals as DomEvents } from "./AttributeObserver/PortalDomEvents.js";
 import { Portals as WindowDocumentEvents } from "./PortalWindowDocumentEvents.js";
 import { Portals as Observers } from "./PortalObservers.js";
 import { Portals as State } from "./PortalState.js";
-import * as Reactions from "./PortalReactions.js";
+import * as Reactions from "./AttributeObserver/PortalReactions.js";
 
 function init() {
   window.EventLoopCube = EventLoopCube;

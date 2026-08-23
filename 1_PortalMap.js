@@ -28,7 +28,7 @@ function memoizeAsync(fn, maxLimit = 10000) {
   };
 }
 
-import { AttrOnOff } from "./OnOffAttr.js";
+import { AttrOnOff } from "./AttributeObserver/OnOffAttr.js";
 
 const Resolver = Symbol("resolver");
 const PromiseResolver = r => Object.assign(new Promise(f => r = f), { [Resolver]: r });
@@ -65,7 +65,7 @@ export class PortalMap {
   #portals = Object.create(null);
   #portalUnresolved = Object.create(null); //portals and portals promises encountered
   #reactionRequests = Object.create(null);
-  
+
   constructor(Portals) {
     for (const [name, Portal] of Object.entries(Portals))
       this.define(name, Portal?.prototype?.on ? Portal.prototype : Portal); //so we can pass in class def objects.
