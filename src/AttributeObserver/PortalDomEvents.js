@@ -20,7 +20,7 @@ const propagationPath = nextElement => (type, el) => {
   let attrs;
   for (; el; el = nextElement(el))
     for (let at of el.attributes)
-      if (at[AttrOnOff.PORTAL] === type)
+      if (at.trigger === type)
         (attrs ??= []).push(at);
   return attrs;
 }
@@ -50,21 +50,19 @@ function Portal(TYPE, reaction) {
     eventLoopCube.dispatchBatch(e, propagationPath(TYPE, e.currentTarget));
   };
 
-  return {
-    [className]: class {
-      on() {
-        this.ownerElement.addEventListener(TYPE, LISTENER, { passive: passive || this.name.includes("_passive") });
-      }
-      off() {
-        this.ownerElement.removeEventListener(TYPE, LISTENER, { passive: passive || this.name.includes("_passive") });
-      }
-      reaction(NAME) {
-        return reaction ?? function () {
-          this.ownerElement.dispatchEvent(new Event(TYPE, { bubbles, composed, cancelable: !passive }));
-        };
-      }
+  return { [className]: class {
+    on() {
+      this.ownerElement.addEventListener(TYPE, LISTENER, { passive: passive || this.name.includes("_passive") });
     }
-  };
+    off() {
+      this.ownerElement.removeEventListener(TYPE, LISTENER, { passive: passive || this.name.includes("_passive") });
+    }
+    reaction(NAME) {
+      return reaction ?? function () {
+        this.ownerElement.dispatchEvent(new Event(TYPE, { bubbles, composed, cancelable: !passive }));
+      };
+    }
+  } }[className];
 }
 const Portals = Object.create(null);
 Portals.click = Portal("click", function () { this.ownerElement.click() });
