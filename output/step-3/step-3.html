@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Step 3 — Native HTML/JS Prototypes</title>
+  <style>
+    /* minimal reset + layout */
+    body { font-family: sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    .case { border: 1px solid #ddd; border-radius: 6px; padding: 1.25rem; margin-bottom: 2rem; }
+    .case h2 { margin: 0 0 .25rem; font-size: 1rem; }
+    .case .meta { font-size: .8rem; color: #888; margin-bottom: 1rem; }
+    .case .label-single { color: #2a7; }
+    .case .label-multi  { color: #c60; }
+    .demo { background: #f9f9f9; border-radius: 4px; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Step 3 — Native HTML/JS Prototypes (Pilot Subset)</h1>
+  <p>Each card below is a self-contained demo of one classified use case, implemented in plain HTML + JS.</p>
+
+  <!-- CASE: 1.5 — single -->
+  <div class="case" id="case-1-5">
+    <h2>1.5 — Click &amp; pointer: Cart drawer closes on outside click</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A shopper clicks outside an open cart drawer in a marketplace and the drawer slides closed without losing the items inside it.</p>
+    <div class="demo">
+      <style>
+        #demo-1-5 .stage { position: relative; overflow: hidden; height: 120px; border: 1px dashed #ccc; border-radius: 4px; }
+        #demo-1-5 .drawer { position: absolute; top: 0; right: 0; width: 200px; height: 100%; background: #fff; border-left: 1px solid #bbb; padding: .75rem; box-sizing: border-box; transform: translateX(100%); transition: transform .25s ease; }
+        #demo-1-5 .drawer.open { transform: translateX(0); }
+        #demo-1-5 .hint { font-size: .8rem; color: #777; }
+      </style>
+      <div id="demo-1-5">
+        <button id="open-cart-1-5">Open cart</button>
+        <p class="hint">Open the cart, then click anywhere outside the drawer.</p>
+        <div class="stage">
+          <aside class="drawer" id="cart-1-5">
+            <strong>Cart</strong>
+            <ul>
+              <li>Vintage lamp — $40</li>
+              <li>Poster frame — $18</li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+      <script>
+      (() => {
+        const drawer = document.getElementById('cart-1-5');
+        const openBtn = document.getElementById('open-cart-1-5');
+        openBtn.addEventListener('click', () => drawer.classList.add('open'));
+        document.addEventListener('click', (e) => {
+          if (!drawer.classList.contains('open')) return;
+          if (drawer.contains(e.target) || e.target === openBtn) return;
+          drawer.classList.remove('open');
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 1.8 — multi -->
+  <div class="case" id="case-1-8">
+    <h2>1.8 — Click &amp; pointer: Load more appends auction lots</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Click &amp; pointer interactions · A collector clicks the load more button under an auction watchlist and the next batch of lots appends with their current bids.</p>
+    <div class="demo">
+      <style>
+        #demo-1-8 ul { margin: 0 0 .75rem; padding-left: 1.25rem; }
+        #demo-1-8 li { padding: .15rem 0; }
+      </style>
+      <div id="demo-1-8">
+        <ul id="lots-1-8">
+          <li>Lot #101 — current bid $220</li>
+          <li>Lot #102 — current bid $95</li>
+          <li>Lot #103 — current bid $410</li>
+        </ul>
+        <button id="load-more-1-8">Load more</button>
+      </div>
+      <script>
+      (() => {
+        const list = document.getElementById('lots-1-8');
+        const btn = document.getElementById('load-more-1-8');
+        let nextLot = 104;
+        btn.addEventListener('click', () => {
+          btn.disabled = true;
+          btn.textContent = 'Loading…';
+          // simulated fetch of the next batch
+          setTimeout(() => {
+            for (let i = 0; i < 3; i++) {
+              const li = document.createElement('li');
+              const bid = 50 + Math.floor(Math.random() * 450);
+              li.textContent = `Lot #${nextLot++} — current bid $${bid}`;
+              list.appendChild(li);
+            }
+            btn.disabled = false;
+            btn.textContent = 'Load more';
+          }, 600);
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 1.18 — single -->
+  <div class="case" id="case-1-18">
+    <h2>1.18 — Click &amp; pointer: Copy invite link button</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A user clicks a copy invite link button in a team admin page and the label briefly reads copied as confirmation feedback.</p>
+    <div class="demo">
+      <div id="demo-1-18">
+        <button id="copy-1-18">Copy invite link</button>
+      </div>
+      <script>
+      (() => {
+        const btn = document.getElementById('copy-1-18');
+        const original = btn.textContent;
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText('https://team.example.com/invite/abc123');
+          } catch (err) {
+            // clipboard API unavailable (e.g. insecure context); feedback still shown
+          }
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = original; }, 2000);
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 1.19 — single -->
+  <div class="case" id="case-1-19">
+    <h2>1.19 — Click &amp; pointer: Accordion header collapses open section</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A user clicks the header of an already open accordion section in a tax FAQ and the section collapses again.</p>
+    <div class="demo">
+      <style>
+        #demo-1-19 .accordion { border: 1px solid #ccc; border-radius: 4px; background: #fff; }
+        #demo-1-19 .acc-header { display: block; width: 100%; text-align: left; padding: .6rem .75rem; background: none; border: none; font: inherit; cursor: pointer; }
+        #demo-1-19 .acc-body { display: none; padding: 0 .75rem .75rem; color: #444; }
+        #demo-1-19 .accordion.open .acc-body { display: block; }
+      </style>
+      <div id="demo-1-19">
+        <section class="accordion open" id="acc-1-19">
+          <button class="acc-header" id="acc-header-1-19">Can I deduct home office expenses? ▾</button>
+          <div class="acc-body">Yes — if part of your home is used regularly and exclusively for business, you can deduct a proportional share of rent, utilities, and insurance.</div>
+        </section>
+      </div>
+      <script>
+      (() => {
+        const section = document.getElementById('acc-1-19');
+        document.getElementById('acc-header-1-19').addEventListener('click', () => {
+          section.classList.toggle('open');
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 1.29 — single -->
+  <div class="case" id="case-1-29">
+    <h2>1.29 — Click &amp; pointer: Payment button ignores repeat clicks</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A payment button processes the first click and ignores all further clicks so an order is never submitted twice.</p>
+    <div class="demo">
+      <div id="demo-1-29">
+        <button id="pay-1-29">Pay $59.00</button>
+        <p id="pay-status-1-29" style="font-size:.8rem;color:#777;">Click rapidly — only the first click is processed.</p>
+      </div>
+      <script>
+      (() => {
+        const btn = document.getElementById('pay-1-29');
+        const status = document.getElementById('pay-status-1-29');
+        let processed = false;
+        btn.addEventListener('click', () => {
+          if (processed) return;
+          processed = true;
+          btn.textContent = 'Processing…';
+          setTimeout(() => {
+            btn.textContent = 'Order submitted ✓';
+            status.textContent = 'Submitted exactly once.';
+          }, 800);
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 2.2 — single -->
+  <div class="case" id="case-2-2">
+    <h2>2.2 — Keyboard: Ctrl+K opens command palette</h2>
+    <p class="meta"><span class="label-single">single</span> · Keyboard interaction · A user presses Ctrl and K anywhere on a documentation site and a command palette opens with its search field already focused.</p>
+    <div class="demo">
+      <style>
+        #demo-2-2 { position: relative; min-height: 120px; }
+        #demo-2-2 .palette { display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 260px; background: #fff; border: 1px solid #999; border-radius: 6px; padding: .5rem; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+        #demo-2-2 .palette.open { display: block; }
+        #demo-2-2 .palette input { width: 100%; box-sizing: border-box; padding: .4rem; }
+      </style>
+      <div id="demo-2-2">
+        <p style="font-size:.8rem;color:#777;">Press <kbd>Ctrl</kbd>+<kbd>K</kbd> (or <kbd>⌘</kbd>+<kbd>K</kbd>) anywhere on the page. <kbd>Esc</kbd> closes.</p>
+        <div class="palette" id="palette-2-2">
+          <input type="text" id="palette-input-2-2" placeholder="Search commands…">
+        </div>
+      </div>
+      <script>
+      (() => {
+        const palette = document.getElementById('palette-2-2');
+        const input = document.getElementById('palette-input-2-2');
+        document.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            palette.classList.add('open');
+            input.focus();
+          } else if (e.key === 'Escape') {
+            palette.classList.remove('open');
+          }
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 3.1 — single -->
+  <div class="case" id="case-3-1">
+    <h2>3.1 — Form &amp; input: Username availability check after a pause</h2>
+    <p class="meta"><span class="label-single">single</span> · Form &amp; input · As a shopper types a username during signup, an availability check runs after each short pause and shows a tick or a taken warning beside the field.</p>
+    <div class="demo">
+      <style>
+        #demo-3-1 .ok { color: #2a7; }
+        #demo-3-1 .bad { color: #c33; }
+        #demo-3-1 .checking { color: #888; }
+      </style>
+      <div id="demo-3-1">
+        <label>Username: <input type="text" id="username-3-1" autocomplete="off"></label>
+        <span id="availability-3-1"></span>
+        <p style="font-size:.8rem;color:#777;">Try "admin", "test", or "aayush" (taken). Check runs 500ms after you stop typing.</p>
+      </div>
+      <script>
+      (() => {
+        const field = document.getElementById('username-3-1');
+        const indicator = document.getElementById('availability-3-1');
+        const taken = ['admin', 'test', 'aayush'];
+        let timer;
+        field.addEventListener('input', () => {
+          clearTimeout(timer);
+          const value = field.value.trim();
+          if (!value) { indicator.textContent = ''; indicator.className = ''; return; }
+          indicator.textContent = 'checking…';
+          indicator.className = 'checking';
+          timer = setTimeout(() => {
+            const available = value.length >= 3 && !taken.includes(value.toLowerCase());
+            indicator.textContent = available ? '✓ available' : '✗ taken';
+            indicator.className = available ? 'ok' : 'bad';
+          }, 500);
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 3.3 — single -->
+  <div class="case" id="case-3-3">
+    <h2>3.3 — Form &amp; input: Email validated on blur</h2>
+    <p class="meta"><span class="label-single">single</span> · Form &amp; input · When the email field loses focus in a checkout form, its format is validated and an inline error appears beneath the field.</p>
+    <div class="demo">
+      <style>
+        #demo-3-3 .error { display: none; color: #c33; font-size: .8rem; margin-top: .25rem; }
+        #demo-3-3 .error.show { display: block; }
+        #demo-3-3 input.invalid { border: 1px solid #c33; }
+      </style>
+      <div id="demo-3-3">
+        <label>Email: <input type="text" id="email-3-3" placeholder="you@example.com"></label>
+        <p class="error" id="email-error-3-3">Please enter a valid email address.</p>
+      </div>
+      <script>
+      (() => {
+        const field = document.getElementById('email-3-3');
+        const error = document.getElementById('email-error-3-3');
+        const valid = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        field.addEventListener('blur', () => {
+          const bad = field.value.trim() !== '' && !valid(field.value.trim());
+          error.classList.toggle('show', bad);
+          field.classList.toggle('invalid', bad);
+        });
+        field.addEventListener('input', () => {
+          if (valid(field.value.trim())) {
+            error.classList.remove('show');
+            field.classList.remove('invalid');
+          }
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 3.20 — multi -->
+  <div class="case" id="case-3-20">
+    <h2>3.20 — Form &amp; input: Terms checkbox enables submit button</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Form &amp; input · Ticking the terms checkbox in a loan application enables the previously disabled submit button immediately.</p>
+    <div class="demo">
+      <div id="demo-3-20">
+        <label><input type="checkbox" id="terms-3-20"> I accept the loan terms</label>
+        <br><br>
+        <button id="submit-3-20" disabled>Submit application</button>
+      </div>
+      <script>
+      (() => {
+        const terms = document.getElementById('terms-3-20');
+        const submit = document.getElementById('submit-3-20');
+        terms.addEventListener('change', () => {
+          submit.disabled = !terms.checked;
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 5.13 — multi -->
+  <div class="case" id="case-5-13">
+    <h2>5.13 — Drag &amp; drop / clipboard: Pasted URL fetches a link preview card</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Drag &amp; drop / clipboard · When a user pastes a URL into a chat composer, a link preview card is fetched and attached below the draft.</p>
+    <div class="demo">
+      <style>
+        #demo-5-13 .card { margin-top: .5rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .5rem .75rem; }
+        #demo-5-13 .card .url { color: #06c; font-size: .85rem; }
+        #demo-5-13 .loading { color: #888; font-size: .85rem; margin: .5rem 0 0; }
+      </style>
+      <div id="demo-5-13">
+        <input type="text" id="composer-5-13" placeholder="Message… paste a URL here" style="width:100%;box-sizing:border-box;padding:.4rem;">
+        <div id="preview-area-5-13"></div>
+      </div>
+      <script>
+      (() => {
+        const composer = document.getElementById('composer-5-13');
+        const previewArea = document.getElementById('preview-area-5-13');
+        const demo = document.getElementById('demo-5-13');
+        composer.addEventListener('paste', (e) => {
+          const text = (e.clipboardData || window.clipboardData).getData('text').trim();
+          if (!/^https?:\/\//.test(text)) return;
+          previewArea.innerHTML = '<p class="loading">Fetching link preview…</p>';
+          // simulated fetch, then hand off to the preview area via a custom event
+          setTimeout(() => {
+            composer.dispatchEvent(new CustomEvent('link-preview', {
+              bubbles: true,
+              detail: { url: text, title: 'Preview: ' + text, description: 'Fetched summary of the pasted link.' }
+            }));
+          }, 700);
+        });
+        demo.addEventListener('link-preview', (e) => {
+          previewArea.innerHTML =
+            '<div class="card"><strong>' + e.detail.title + '</strong>' +
+            '<div class="url">' + e.detail.url + '</div>' +
+            '<div>' + e.detail.description + '</div></div>';
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 7.12 — single -->
+  <div class="case" id="case-7-12">
+    <h2>7.12 — Visibility &amp; intersection: Comments load as section nears viewport</h2>
+    <p class="meta"><span class="label-single">single</span> · Visibility &amp; intersection · When a comments section is about to enter the viewport on a forum thread, its content starts loading in the background.</p>
+    <div class="demo">
+      <div id="demo-7-12">
+        <p style="font-size:.8rem;color:#777;">Scroll down inside this page — the comments section below starts loading just before it enters the viewport.</p>
+        <div style="height:260px;border:1px dashed #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#aaa;">thread content (scroll past me)</div>
+        <section id="comments-7-12" style="margin-top:1rem;background:#fff;border:1px solid #ccc;border-radius:4px;padding:.75rem;">
+          <strong>Comments</strong>
+          <div id="comments-body-7-12"><p style="color:#888;">Not loaded yet.</p></div>
+        </section>
+      </div>
+      <script>
+      (() => {
+        const section = document.getElementById('comments-7-12');
+        const body = document.getElementById('comments-body-7-12');
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            observer.disconnect();
+            body.innerHTML = '<p style="color:#888;">Loading comments…</p>';
+            // simulated background fetch
+            setTimeout(() => {
+              body.innerHTML = '<ul style="margin:0;padding-left:1.25rem;">' +
+                '<li>Great thread, thanks!</li>' +
+                '<li>Same issue here — following.</li>' +
+                '<li>Fixed it by clearing the cache.</li></ul>';
+            }, 800);
+          });
+        }, { rootMargin: '150px' });
+        observer.observe(section);
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 9.1 — single -->
+  <div class="case" id="case-9-1">
+    <h2>9.1 — Resize &amp; viewport: Chart grid reflows below tablet width</h2>
+    <p class="meta"><span class="label-single">single</span> · Resize &amp; viewport · When the browser window narrows below tablet width in a trading dashboard, the chart grid reflows from three columns to one.</p>
+    <div class="demo">
+      <style>
+        #demo-9-1 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+        #demo-9-1 .grid.narrow { grid-template-columns: 1fr; }
+        #demo-9-1 .cell { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1rem; text-align: center; color: #555; }
+      </style>
+      <div id="demo-9-1">
+        <p style="font-size:.8rem;color:#777;">Resize the browser window below 700px wide and the grid reflows to one column.</p>
+        <div class="grid" id="grid-9-1">
+          <div class="cell">Chart A</div>
+          <div class="cell">Chart B</div>
+          <div class="cell">Chart C</div>
+        </div>
+      </div>
+      <script>
+      (() => {
+        const grid = document.getElementById('grid-9-1');
+        const reflow = () => grid.classList.toggle('narrow', window.innerWidth < 700);
+        window.addEventListener('resize', reflow);
+        reflow();
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 9.12 — single -->
+  <div class="case" id="case-9-12">
+    <h2>9.12 — Resize &amp; viewport: Badge swaps label for icon when space runs out</h2>
+    <p class="meta"><span class="label-single">single</span> · Resize &amp; viewport · A badge reads its own width as it changes and swaps its full label text for a compact icon when space runs out.</p>
+    <div class="demo">
+      <style>
+        #demo-9-12 .resizable { resize: horizontal; overflow: hidden; width: 220px; max-width: 100%; min-width: 40px; border: 1px dashed #ccc; border-radius: 4px; padding: .25rem; }
+        #demo-9-12 .badge { display: block; width: 100%; box-sizing: border-box; background: #eef; border: 1px solid #99c; border-radius: 4px; padding: .3rem .5rem; text-align: center; white-space: nowrap; }
+      </style>
+      <div id="demo-9-12">
+        <p style="font-size:.8rem;color:#777;">Drag the corner of the dashed box narrower and the badge swaps to an icon.</p>
+        <div class="resizable">
+          <span class="badge" id="badge-9-12">Notifications</span>
+        </div>
+      </div>
+      <script>
+      (() => {
+        const badge = document.getElementById('badge-9-12');
+        new ResizeObserver((entries) => {
+          entries.forEach((entry) => {
+            badge.textContent = entry.contentRect.width < 110 ? '🔔' : 'Notifications';
+          });
+        }).observe(badge);
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 10.1 — single -->
+  <div class="case" id="case-10-1">
+    <h2>10.1 — Scroll: Reading progress bar fills with depth</h2>
+    <p class="meta"><span class="label-single">single</span> · Scroll · As a user scrolls a long article, a progress bar at the top of the page fills in proportion to reading depth.</p>
+    <div class="demo">
+      <style>
+        #demo-10-1 .track { height: 6px; background: #e3e3e3; border-radius: 3px; margin-bottom: .5rem; }
+        #demo-10-1 .bar { height: 100%; width: 0; background: #2a7; border-radius: 3px; }
+        #demo-10-1 .article { height: 180px; overflow-y: scroll; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .75rem; }
+      </style>
+      <div id="demo-10-1">
+        <div class="track"><div class="bar" id="bar-10-1"></div></div>
+        <div class="article" id="article-10-1">
+          <p><strong>The Long Article.</strong> Scroll inside this box and watch the bar fill.</p>
+          <p>Section one: an introduction long enough to make the point that reading depth can be measured from scroll metrics alone.</p>
+          <p>Section two: the middle of the piece, where the bar should read roughly half full once the scrollbar reaches the middle of its travel.</p>
+          <p>Section three: more body text, keeping the reader scrolling toward the end of the document.</p>
+          <p>Section four: almost there. The bar continues to track the fraction of the article that has been scrolled through.</p>
+          <p>Section five: the conclusion. When the bottom of the article is reached, the bar reads exactly one hundred percent.</p>
+        </div>
+      </div>
+      <script>
+      (() => {
+        const article = document.getElementById('article-10-1');
+        const bar = document.getElementById('bar-10-1');
+        article.addEventListener('scroll', () => {
+          const max = article.scrollHeight - article.clientHeight;
+          bar.style.width = (max > 0 ? (article.scrollTop / max) * 100 : 100) + '%';
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+  <!-- CASE: 10.2 — multi -->
+  <div class="case" id="case-10-2">
+    <h2>10.2 — Scroll: Scrolling to end of terms enables accept button</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Scroll · When a user scrolls to the end of a terms document in an account opening flow, the accept button becomes enabled.</p>
+    <div class="demo">
+      <style>
+        #demo-10-2 .terms { height: 120px; overflow-y: scroll; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .75rem; margin-bottom: .75rem; font-size: .9rem; color: #444; }
+      </style>
+      <div id="demo-10-2">
+        <div class="terms" id="terms-10-2">
+          <p><strong>Terms of Service.</strong> Scroll to the very end to enable the accept button.</p>
+          <p>1. The account holder agrees to the conditions laid out in this document, which continue for several paragraphs so that scrolling is required.</p>
+          <p>2. Fees, where applicable, are disclosed in the schedule attached to the account agreement.</p>
+          <p>3. Either party may close the account with thirty days of written notice.</p>
+          <p>4. Disputes are settled under the laws of the issuing jurisdiction.</p>
+          <p>5. End of terms. The accept button is now enabled.</p>
+        </div>
+        <button id="accept-10-2" disabled>Accept terms</button>
+      </div>
+      <script>
+      (() => {
+        const terms = document.getElementById('terms-10-2');
+        const accept = document.getElementById('accept-10-2');
+        terms.addEventListener('scroll', () => {
+          if (terms.scrollTop + terms.clientHeight >= terms.scrollHeight - 2) {
+            accept.disabled = false;
+          }
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
+</body>
+</html>
