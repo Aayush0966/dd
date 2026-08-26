@@ -82,17 +82,22 @@
         btn.addEventListener('click', () => {
           btn.disabled = true;
           btn.textContent = 'Loading…';
-          // simulated fetch of the next batch
-          setTimeout(() => {
-            for (let i = 0; i < 3; i++) {
-              const li = document.createElement('li');
-              const bid = 50 + Math.floor(Math.random() * 450);
-              li.textContent = `Lot #${nextLot++} — current bid $${bid}`;
-              list.appendChild(li);
-            }
-            btn.disabled = false;
-            btn.textContent = 'Load more';
-          }, 600);
+          fetch('https://example.com/api/auction/lots?after=' + (nextLot - 1))
+            .then((res) => res.json())
+            .then((lots) => {
+              for (const lot of lots) {
+                const li = document.createElement('li');
+                li.textContent = `Lot #${lot.id} — current bid $${lot.bid}`;
+                list.appendChild(li);
+                nextLot = lot.id + 1;
+              }
+              btn.disabled = false;
+              btn.textContent = 'Load more';
+            })
+            .catch(() => {
+              btn.disabled = false;
+              btn.textContent = 'Load more';
+            });
         });
       })();
       </script>
@@ -171,10 +176,17 @@
           if (processed) return;
           processed = true;
           btn.textContent = 'Processing…';
-          setTimeout(() => {
-            btn.textContent = 'Order submitted ✓';
-            status.textContent = 'Submitted exactly once.';
-          }, 800);
+          fetch('https://example.com/api/orders', {
+            method: 'POST',
+            body: JSON.stringify({ total: 59.00, currency: 'USD' })
+          })
+            .then(() => {
+              btn.textContent = 'Order submitted ✓';
+              status.textContent = 'Submitted exactly once.';
+            })
+            .catch(() => {
+              status.textContent = 'Submit failed — repeat clicks were still ignored, so no duplicate order was sent.';
+            });
         });
       })();
       </script>
@@ -188,7 +200,7 @@
     <div class="demo">
       <style>
         #demo-2-2 { position: relative; min-height: 120px; }
-        #demo-2-2 .palette { display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 260px; background: #fff; border: 1px solid #999; border-radius: 6px; padding: .5rem; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+        #demo-2-2 .palette { display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 260px; background: #fff; border: 1px solid #999; border-radius: 6px; padding: .5rem; }
         #demo-2-2 .palette.open { display: block; }
         #demo-2-2 .palette input { width: 100%; box-sizing: border-box; padding: .4rem; }
       </style>
@@ -216,6 +228,46 @@
     </div>
   </div>
 
+  <!-- CASE: 2.3 — single -->
+  <div class="case" id="case-2-3">
+    <h2>2.3 — Keyboard: Enter sends, Shift+Enter inserts a newline</h2>
+    <p class="meta"><span class="label-single">single</span> · Keyboard interaction · Pressing Enter in a chat composer sends the message, while Shift and Enter together insert a plain newline instead.</p>
+    <div class="demo">
+      <style>
+        #demo-2-3 .log { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .5rem .75rem; margin-bottom: .5rem; min-height: 2rem; font-size: .9rem; }
+        #demo-2-3 .log p { margin: .15rem 0; }
+        #demo-2-3 .log .empty { color: #999; }
+        #demo-2-3 textarea { width: 100%; box-sizing: border-box; padding: .4rem; }
+      </style>
+      <div id="demo-2-3">
+        <div class="log" id="log-2-3"><p class="empty">No messages yet.</p></div>
+        <textarea id="composer-2-3" rows="2" placeholder="Type a message — Enter sends, Shift+Enter adds a newline"></textarea>
+      </div>
+      <script>
+      (() => {
+        const composer = document.getElementById('composer-2-3');
+        const log = document.getElementById('log-2-3');
+        composer.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter' || e.shiftKey) return; // Shift+Enter falls through to a plain newline
+          e.preventDefault();
+          const text = composer.value.trim();
+          if (!text) return;
+          const empty = log.querySelector('.empty');
+          if (empty) empty.remove();
+          const msg = document.createElement('p');
+          msg.textContent = text;
+          log.appendChild(msg);
+          composer.value = '';
+          fetch('https://example.com/api/messages', {
+            method: 'POST',
+            body: JSON.stringify({ text })
+          }).catch(() => { /* send failed; the message stays in the local log */ });
+        });
+      })();
+      </script>
+    </div>
+  </div>
+
   <!-- CASE: 3.1 — single -->
   <div class="case" id="case-3-1">
     <h2>3.1 — Form &amp; input: Username availability check after a pause</h2>
@@ -229,13 +281,12 @@
       <div id="demo-3-1">
         <label>Username: <input type="text" id="username-3-1" autocomplete="off"></label>
         <span id="availability-3-1"></span>
-        <p style="font-size:.8rem;color:#777;">Try "admin", "test", or "aayush" (taken). Check runs 500ms after you stop typing.</p>
+        <p style="font-size:.8rem;color:#777;">The availability check fires 500ms after you stop typing (debounced), then calls the server.</p>
       </div>
       <script>
       (() => {
         const field = document.getElementById('username-3-1');
         const indicator = document.getElementById('availability-3-1');
-        const taken = ['admin', 'test', 'aayush'];
         let timer;
         field.addEventListener('input', () => {
           clearTimeout(timer);
@@ -244,9 +295,16 @@
           indicator.textContent = 'checking…';
           indicator.className = 'checking';
           timer = setTimeout(() => {
-            const available = value.length >= 3 && !taken.includes(value.toLowerCase());
-            indicator.textContent = available ? '✓ available' : '✗ taken';
-            indicator.className = available ? 'ok' : 'bad';
+            fetch('https://example.com/api/username-availability?u=' + encodeURIComponent(value))
+              .then((res) => res.json())
+              .then((data) => {
+                indicator.textContent = data.available ? '✓ available' : '✗ taken';
+                indicator.className = data.available ? 'ok' : 'bad';
+              })
+              .catch(() => {
+                indicator.textContent = 'availability check failed';
+                indicator.className = 'checking';
+              });
           }, 500);
         });
       })();
@@ -334,13 +392,17 @@
           const text = (e.clipboardData || window.clipboardData).getData('text').trim();
           if (!/^https?:\/\//.test(text)) return;
           previewArea.innerHTML = '<p class="loading">Fetching link preview…</p>';
-          // simulated fetch, then hand off to the preview area via a custom event
-          setTimeout(() => {
-            composer.dispatchEvent(new CustomEvent('link-preview', {
-              bubbles: true,
-              detail: { url: text, title: 'Preview: ' + text, description: 'Fetched summary of the pasted link.' }
-            }));
-          }, 700);
+          fetch('https://example.com/api/link-preview?url=' + encodeURIComponent(text))
+            .then((res) => res.json())
+            .then((preview) => {
+              composer.dispatchEvent(new CustomEvent('link-preview', {
+                bubbles: true,
+                detail: { url: text, title: preview.title, description: preview.description }
+              }));
+            })
+            .catch(() => {
+              previewArea.innerHTML = '<p class="loading">Could not load a preview for that link.</p>';
+            });
         });
         demo.addEventListener('link-preview', (e) => {
           previewArea.innerHTML =
@@ -375,13 +437,15 @@
             if (!entry.isIntersecting) return;
             observer.disconnect();
             body.innerHTML = '<p style="color:#888;">Loading comments…</p>';
-            // simulated background fetch
-            setTimeout(() => {
-              body.innerHTML = '<ul style="margin:0;padding-left:1.25rem;">' +
-                '<li>Great thread, thanks!</li>' +
-                '<li>Same issue here — following.</li>' +
-                '<li>Fixed it by clearing the cache.</li></ul>';
-            }, 800);
+            fetch('https://example.com/api/comments?thread=42')
+              .then((res) => res.json())
+              .then((comments) => {
+                body.innerHTML = '<ul style="margin:0;padding-left:1.25rem;">' +
+                  comments.map((c) => '<li>' + c.text + '</li>').join('') + '</ul>';
+              })
+              .catch(() => {
+                body.innerHTML = '<p style="color:#888;">Comments could not be loaded.</p>';
+              });
           });
         }, { rootMargin: '150px' });
         observer.observe(section);
