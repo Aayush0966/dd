@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Step 4 — DD Attribute Syntax (Pilot Subset)</title>
+  <style>
+    /* minimal reset + layout */
+    body { font-family: sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    .case { border: 1px solid #ddd; border-radius: 6px; padding: 1.25rem; margin-bottom: 2rem; }
+    .case h2 { margin: 0 0 .25rem; font-size: 1rem; }
+    .case .meta { font-size: .8rem; color: #888; margin-bottom: 1rem; }
+    .case .label-single { color: #2a7; }
+    .case .label-multi  { color: #c60; }
+    .demo { background: #f9f9f9; border-radius: 4px; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Step 4 — DD Attribute Syntax (Pilot Subset)</h1>
+  <p>Each card below is a self-contained demo of one classified use case, expressed declaratively with DD attribute chains — no imperative JS in this file.</p>
+
+  <!-- CASE: 1.5 — single -->
+  <div class="case" id="case-1-5">
+    <h2>1.5 — Click &amp; pointer: Cart drawer closes on outside click</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A shopper clicks outside an open cart drawer in a marketplace and the drawer slides closed without losing the items inside it.</p>
+    <div class="demo">
+      <style>
+        #demo-1-5 .stage { position: relative; overflow: hidden; height: 120px; border: 1px dashed #ccc; border-radius: 4px; }
+        #demo-1-5 .drawer { position: absolute; top: 0; right: 0; width:  200px; height: 100%; background: #fff; border-left: 1px solid #bbb; padding: .75rem; box-sizing: border-box; transform: translateX(100%); transition: transform .25s ease; }
+        #demo-1-5.open .drawer { transform: translateX(0); }
+        #demo-1-5 .hint { font-size: .8rem; color: #777; }
+      </style>
+      <!-- GAP: no "click-outside-element" portal and no containment guard. `class_open_toggle` treats every bubbled
+           click on this wrapper (open button, drawer, or backdrop( the same, whereas the native doc-level listener only closes
+           when the click lands outside the open drawer and never touches the drawer's children. Closing is still a pure class flip, so the
+           drawer never loses its items. The `open` class lands on this wrapper by DD's owner-element rule, so the styling slides the
+           inner drawer via the descendant rule `#demo-1-5.open .drawer`. A containment guard or an `outside` trigger would close this gap. -->
+      <div id="demo-1-5" click:class_open_toggle>
+        <button id="open-cart-1-5">Open cart</button>
+        <p class="hint">Open the cart, then click anywhere outside the drawer.</p>
+        <div class="stage">
+          <aside class="drawer" id="cart-1-5">
+            <strong>Cart</strong>
+            <ul>
+              <li>Vintage lamp — $40</li>
+              <li>Poster frame — $18</li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+      <!-- <script> (() => {
+        const drawer = document.getElementById('cart-1-5'); const openBtn = document.getElementById('open-cart-1-5');
+        openBtn.addEventListener('click', () => drawer.classList.add('open'));
+        document.addEventListener('click', (e) => { if (!drawer.classList.contains('open')) return; if (drawer.contains(e.target) || e.target === openBtn) return; drawer.classList.remove('open'); });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 1.8 — multi -->
+  <div class="case" id="case-1-8">
+    <h2>1.8 — Click &amp; pointer: Load more appends auction lots</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Click &amp; pointer interactions · A collector clicks the load more button under an auction watchlist and the next batch of lots appends with their current bids.</p>
+    <div class="demo">
+      <style>
+        #demo-1-8 ul { margin: 0 0 .75rem; padding-left: 1.25rem; }
+        #demo-1-8 li { padding: .15rem 0; }
+      </style>
+      <!-- Cross-element coordination (multi): the load-more button writes to the `loadmore.go` state store via `state_loadmore`
+           and the lot list listens for that store update with its own `state_loadmore` chain. No reaction can append a batch of
+           `<li>` nodes, so the list falls back to replacing its innerHTML with the fetch response (see gaps..>
+      <div id="demo-1-8">
+        <ul id="lots-1-8" state_loadmore:fetch_https://example.com/api/auction/lots:html>
+          <li>Lot #101 — current bid $220</li>
+          <li>Lot #102 — current bid $95</li>
+          <li>Lot #103 — current bid $410</li>
+        </ul>
+        <button id="load-more-1-8" click:text_Loading…:toggle_disabled:state_loadmore>Load more</button>
+      </div>
+      <!-- GAP: (1) no append/iteration reaction — `html` replaces the entire list instead of appending one `<li>` per lot;
+           (2) the fetch URL is static — the native `?after=<last-lot-id>` argument needs a computed value, and no reaction can inject one;
+           (3) no fetch-settled reset reaction, so the button stays disabled and reads Loading… forever (native re-enables in .then/.catch);
+           (4) the `state_` store holds the raw `ClickEvent` (no flag/boolean-compute reaction), so each click is a distinct update. -->
+      <!-- <script> (() => {
+        const list = document.getElementById('lots-1-8'); const btn = document.getElementById('load-more-1-8'); let nextLot = 104;
+        btn.addEventListener('click', () => { btn.disabled = true; btn.textContent = 'Loading…';
+          fetch('https://example.com/api/auction/lots?after=' + (nextLot - 1)).then(res => res.json().then((lots) => {
+            for ( (const lot of lots) { const li = document.createElement('li'); li.textContent = `Lot #${lot.id} — current bid $${lot.bid}`; list.appendChild(li); nextLot = lot.id + 1; }
+            btn.disabled = false; btn.textContent = 'Load more';
+          }).catch(() => { btn.disabled = false; btn.textContent = 'Load more'; });
+        });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 1.18 — single -->
+  <div class="case" id="case-1-18">
+    <h2>1.18 — Click &amp; pointer: Copy invite link button</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A user clicks a copy invite link button in a team admin page and the label briefly reads copied as confirmation feedback.</p>
+    <div class="demo">
+      <div id="demo-1-18">
+        <button id="copy-1-18" click:copy_https://team.example.com/invite/abc123:text_Copied!:wait_2000:text_Copy invite link>Copy invite link</button>
+      </div>
+      <!-- GAP (minor): copy's reaction writes the clipboard without a try/catch wrapper — on an insecure context the native demo caught the error and still showed feedback; here the chain would end on the rejection. -->
+      <!-- <script> (() => {
+        const btn = document.getElementById('copy-1-18'); const original = btn.textContent;
+        btn.addEventListener('click', async () => { try { await navigator.clipboard.writeText('https://team.example.com/invite/abc123'); } catch (err) {}
+          btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = original; }, 2000);
+        });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 1.19 — single -->
+  <div class="case" id="case-1-19">
+    <h2>1.19 — Click &amp; pointer: Accordion header collapses open section</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A user clicks the header of an already open accordion section in a tax FAQ and the section collapses again.</p>
+    <div class="demo">
+      <style>
+        #demo-1-19 .accordion { border: 1px solid #ccc; border-radius: 4px; background: #fff; }
+        #demo-1-19 .acc-header { display: block; width: 100%; text-align: left; padding: .6rem .75rem; background: none; border: none; font: inherit; cursor: pointer; }
+        #demo-1-19 .acc-body { display: none; padding: 0 .75rem .75rem; color: #444; }
+        #demo-1-19 .accordion.open .acc-body { display: block; }
+      </style>
+      <!-- The trigger lives on the whole section (the click bubbles up from the header button; the mutation is the section's own `open` class — same class flip the native header listener performed. -->
+      <div id="demo-1-19">
+        <section class="accordion open" id="acc-1-19" click:class_open_toggle>
+          <button class="acc-header" id="acc-header-1-19">Can I deduct home office expenses? ▾</button>
+          <div class="acc-body">Yes — if part of your home is used regularly and exclusively for business, you can deduct a proportional share of rent, utilities, and insurance.</div>
+        </section>
+      </div>
+      <!-- <script> (() => {
+        const section = document.getElementById('acc-1-19');
+        document.getElementById('acc-header-1-19').addEventListener('click', () => { section.classList.toggle('open'); });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 1.29 — single -->
+  <div class="case" id="case-1-29">
+    <h2>1.29 — Click &amp; pointer: Payment button ignores repeat clicks</h2>
+    <p class="meta"><span class="label-single">single</span> · Click &amp; pointer interactions · A payment button processes the first click and ignores all further clicks so an order is never submitted twice.</p>
+    <div class="demo">
+      <div id="demo-1-29">
+        <button id="pay-1-29" click:text_Processing…:toggle_disabled:fetch_https://example.com/api/orders:log>Pay $59.00</button>
+        <p id="pay-status-1-29" style="font-size:.8rem;color:#777;">Click rapidly — only the first click is processed.</p>
+      </div>
+      <!-- GAP: (1) no URL-options reaction — the native POST (method:body: JSON.stringify) cannot be expressed, only a no-arg GET `fetch_<url>` exists;
+           (2) the once-guard is approximated by disabling the button on first click (native stayed enabled-looking but ignored further clicks);
+           (3) no success/failure reaction rewrites the label or the status line. -->
+      <!-- <script> (() => {
+        const btn = document.getElementById('pay-1-29'); const status = document.getElementById('pay-status-1-29'); let processed = false;
+        btn.addEventListener('click', () => { if (processed) return; processed = true; btn.textContent = 'Processing…';
+          fetch('https://example.com/api/orders', { method: 'POST', body: JSON.stringify({ total: 59.00, currency: 'USD' }) }).then(() => { btn.textContent = 'Order submitted ✓'; status.textContent = 'Submitted exactly once.'; }).catch(() => { status.textContent = 'Submit failed — repeat clicks were still ignored, so no duplicate order was sent.'; });
+        });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 2.2 — single -->
+  <div class="case" id="case-2-2">
+    <h2>2.2 — Keyboard: Ctrl+K opens command palette</h2>
+    <p class="meta"><span class="label-single">single</span> · Keyboard interaction · A user presses Ctrl and K anywhere on a documentation site and a command palette opens with its search field already focused.</p>
+    <div class="demo">
+      <style>
+        #demo-2-2 { position: relative; min-height: 120px; }
+        #demo-2-2 .palette { display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width:  260px; background: #fff; border: 1px solid #999; border-radius: 6px; padding: .5rem; }
+        #demo-2-2.open .palette { display: block; }
+        #demo-2-2 .palette input { width: 100%; box-sizing: border-box; padding: .4rem; }
+      </style>
+      <!-- The native listener was on `document`; DD's `keydown` portal is element-scoped and bubbles, so the attribute lives on this wrapping
+           container. `tabindex="0"` keeps the container focusable so a keydown can actually originate inside it (click the demo first..
+           The `open` class lands on this wrapper by DD's owner-element rule, so the CSS reveals the palette via the descendant rule `#demo-2-2.open .palette`.
+           GAP: no modifier-key filter (Ctrl/Meta+K only) and no Escape-close/reopen; no reaction can drive focus into the palette's input
+           (focus targets the owner element). `class_open_add` fires on any keydown — this is a partial that can never equal the native
+           Ctrl+K global shortcut. -->
+      <div id="demo-2-2" tabindex="0" keydown:class_open_add>
+        <p style="font-size:.8rem;color:#777;">Click this box, then press <kbd>Ctrl</kbd>+<kbd>K</kbd> (or <kbd>⌘</kbd>+<kbd>K</kbd>. <kbd>Esc</kbd> closes.</p>
+        <div class="palette" id="palette-2-2">
+          <input type="text" id="palette-input-2-2" placeholder="Search commands…">
+        </div>
+      </div>
+      <!-- <script> (() => {
+        const palette = document.getElementById('palette-2-2'); const input = document.getElementById('palette-input-2-2');
+        document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.classList.add('open'); input.focus(); }
+          else if (e.key === 'Escape') { palette.classList.remove('open'); }
+        });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 2.3 — single -->
+  <div class="case" id="case-2-3">
+    <h2>2.3 — Keyboard: Enter sends, Shift+Enter inserts a newline</h2>
+    <p class="meta"><span class="label-single">single</span> · Keyboard interaction · Pressing Enter in a chat composer sends the message, while Shift and Enter together insert a plain newline instead.</p>
+    <div class="demo">
+      <style>
+        #demo-2-3 .log { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .5rem .75rem; margin-bottom: .5rem; min-height: 3rem; font-size: .9rem; }
+        #demo-2-3 .log p { margin: .15rem 0; }
+        #demo-2-3 .log .empty { color: #999; }
+        #demo-2-3 textarea { width: 100%; box-sizing: border-box; padding: .4rem; }
+      </style>
+      <!-- GAP: the native keydown handler discriminates Enter(no-Shift) from everything else. DD has no key/modifier filter reaction,
+           so any Enter-scoped chain (prevent/value_/fetch) would also block plain typing (every keystroke fires the portal). The only honest partial is
+           to log the keystroke; nothing else can be scoped without breaking normal text entry. -->
+      <div id="demo-2-3">
+        <div class="log" id="log-2-3"><p class="empty">No messages yet.</p></div>
+        <textarea id="composer-2-3" rows="2" placeholder="Type a message — Enter sends, Shift+Enter adds a newline" keydown:log></textarea>
+      </div>
+      <!-- <script> (() => {
+        const composer = document.getElementById('composer-2-3'); const log = document.getElementById('log-2-3');
+        composer.addEventListener('keydown', (e) => { if (e.key !== 'Enter' || e.shiftKey) return; e.preventDefault();
+          const text = composer.value.trim(); if (!text) return; const empty = log.querySelector('.empty'); if (empty) empty.remove();
+          const msg = document.createElement('p'); msg.textContent = text; log.appendChild(msg); composer.value = ';
+          fetch('https://example.com/api/messages', { method: 'POST', body: JSON.stringify({ text }) }).catch(() => {});
+        });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 3.1 — single -->
+  <div class="case" id="case-3-1">
+    <h2>3.1 — Form &amp; input: Username availability check after a pause</h2>
+    <p class="meta"><span class="label-single">single</span> · Form &amp; input · As a shopper types a username during signup, an availability check runs after each short pause and shows a tick or a taken warning beside the field.</p>
+    <div class="demo">
+      <style>
+        #demo-3-1 .ok { color: #2a7; }
+        #demo-3-1 .bad { color: #c33; }
+        #demo-3-1 .checking { color: #888; }
+      </style>
+      <!-- GAP: (1) no debounce reaction exists — `wait_500` delays the chain but does not reset on repeated fires, so the check runs
+           500ms after *every* keystroke instead of after the last one; (2) the native `${value}` can't be interpolated into the fetch URL —
+           there is no value-composition reaction, so the URL is static; (3) no reaction writes intothe companion indicator span
+           (mutations land on the owner element only), and no conditional skip-empty/color logic exists. -->
+      <div id="demo-3-1">
+        <label>Username: <input type="text" id="username-3-1" autocomplete="off" input:wait_500:fetch_https://example.com/api/username-availability?u=:log></label>
+        <span id="availability-3-1"></span>
+        <p style="font-size:.8rem;color:#777;">The availability check fires 500ms after you stop typing (debounced), then calls the server.</p>
+      </div>
+      <!-- <script> (() => {
+        const field = document.getElementById('username-3-1'); const indicator = document.getElementById('availability-3-1'); let timer;
+        field.addEventListener('input', () => { clearTimeout(timer); const value = field.value.trim(); if (!value) { indicator.textContent = ''; indicator.className = ''; return; }
+          indicator.textContent = 'checking…'; indicator.className = 'checking';
+          timer = setTimeout(() => { fetch('https://example.com/api/username-availability?u=' + encodeURIComponent(value)).then(res => res.json().then((data) => {
+            indicator.textContent = data.available ? '✓ available' : '✗ taken'; indicator.className = data.available ? 'ok' : 'bad';
+          }).catch(() => { indicator.textContent = 'availability check failed'; indicator.className = 'checking'; });
+        }, 500);
+        });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 3.3 — single -->
+  <div class="case" id="case-3-3">
+    <h2>3.3 — Form &amp; input: Email validated on blur</h2>
+    <p class="meta"><span class="label-single">single</span> · Form &amp; input · When the email field loses focus in a checkout form, its format is validated and an inline error appears beneath the field.</p>
+    <div class="demo">
+      <style>
+        #demo-3-3 .error { display: none; color: #c33; font-size: .8rem; margin-top: .25rem; }
+        #demo-3-3 .error.show { display: block; }
+        #demo-3-3 input.invalid { border: 1px solid #c33; }
+      </style>
+      <!-- GAP: no conditional/validator reaction exists — DD cannot test the email format, skip empty values, or toggle the error state based on
+           a regex. `class_invalid_add` marks the field invalid on every blur (even empty/valid ones., and there is no reaction that can write the
+           `show` class ontothe companion `.error` element (mutations land on the owner element only
+           (the `input` re-clear half of the native behavior is likewise unmappable (no remove-on-valid-input reaction. -->
+      <div id="demo-3-3">
+        <label>Email: <input type="text" id="email-3-3" placeholder="you@example.com" blur:class_invalid_add></label>
+        <p class="error" id="email-error-3-3">Please enter a valid email address.</p>
+      </div>
+      <!-- <script> (() => {
+        const field = document.getElementById('email-3-3'); const error = document.getElementById('email-error-3-3'); const valid = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        field.addEventListener('blur', () => { const bad = field.value.trim() !== '' && !valid(field.value.trim()); error.classList.toggle('show', bad); field.classList.toggle('invalid', bad); });
+        field.addEventListener('input', () => { if (valid(field.value.trim())) { error.classList.remove('show'); field.classList.remove('invalid'); } });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 3.20 — multi -->
+  <div class="case" id="case-3-20">
+    <h2>3.20 — Form &amp; input: Terms checkbox enables submit button</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Form &amp; input · Ticking the terms checkbox in a loan application enables the previously disabled submit button immediately.</p>
+    <div class="demo">
+      <!-- Cross-element coordination (multi): checkbox `change` writes `terms.checked` intothe `terms` state store; the submit
+           button listens with its own `state_terms` chain and toggles its `disabled` attribute on each store update. The state store is
+           initialized with the raw change event (no boolean-compute reaction), so a fresh checkbox change always counts as an update. -->
+      <div id="demo-3-20">
+        <label><input type="checkbox" id="terms-3-20" change:state_terms> I accept the loan terms</label>
+        <br><br>
+        <button id="submit-3-20" disabled state_terms:toggle_disabled>Submit application</button>
+      </div>
+      <!-- <script> (() => {
+        const terms = document.getElementById('terms-3-20'); const submit = document.getElementById('submit-3-20');
+        terms.addEventListener('change', () => { submit.disabled = !terms.checked; });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 5.13 — multi -->
+  <div class="case" id="case-5-13">
+    <h2>5.13 — Drag &amp; drop / clipboard: Pasted URL fetches a link preview card</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Drag &amp; drop / clipboard · When a user pastes a URL into a chat composer, a link preview card is fetched and attached below the draft.</p>
+    <div class="demo">
+      <style>
+        #demo-5-13 .card { margin-top: .5rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .5rem .75rem; }
+        #demo-5-13 .card .url { color: #06c; font-size: .85rem; }
+        #demo-5-13 .loading { color: #888; font-size: .85rem; margin: .5rem 0 0; }
+      </style>
+      <!-- GAP: (1) no clipboard-text reaction exposes `clipboardData.getData('text')`, so teh pasted URL can't be read or tested against a URL regex;
+           (2) no reaction can write the loading placeholder or the card intothe sibling preview area (mutations land on the owner element only);
+           (3) the native custom-event handoff (composer dispatches `link-preview`, the shared container listens) has no DD equivalent
+           (default reaction names re-dispatch a *native* event type only, no payload. The best partial is a static fetch that simply logs. -->
+      <div id="demo-5-13">
+        <input type="text" id="composer-5-13" placeholder="Message… paste a URL here" style="width:100%;box-sizing:border-box;padding:.4rem;" paste:fetch_https://example.com/api/link-preview:log>
+        <div id="preview-area-5-13"></div>
+      </div>
+      <!-- <script> (() => {
+        const composer = document.getElementById('composer-5-13'); const previewArea = document.getElementById('preview-area-5-13'); const demo = document.getElementById('demo-5-13');
+        composer.addEventListener('paste', (e) => { const text = (e.clipboardData || window.clipboardData).getData('text').trim(); if (!/^https?:\/\//.test(text)) return;
+          previewArea.innerHTML = '<p class="loading">Fetching link preview…</p>';
+          fetch('https://example.com/api/link-preview?url=' + encodeURIComponent(text)).then(res => res.json().then((preview) => {
+            composer.dispatchEvent(new CustomEvent('link-preview', { bubbles: true, detail: { url: text, title: preview.title, description: preview.description } }));
+          }).catch(() => { previewArea.innerHTML = '<p class="loading">Could not load a preview for that link.</p>'; });
+        });
+        demo.addEventListener('link-preview', (e) => { previewArea.innerHTML = '<div class="card"><strong>' + e.detail.title + '</strong><div class="url">' + e.detail.url + '</div><div>' + e.detail.description + '</div></div>'; });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 7.12 — single -->
+  <div class="case" id="case-7-12">
+    <h2>7.12 — Visibility &amp; intersection: Comments load as section nears viewport</h2>
+    <p class="meta"><span class="label-single">single</span> · Visibility &amp; intersection · When a comments section is about to enter the viewport on a forum thread, its content starts loading in the background.</p>
+    <div class="demo">
+      <!-- GAP: (1) the intersection portal is hard-coded to the default rootMargin (none), so the native `rootMargin: '150px'`
+           "about to enter" window cannot be expressed; (2) no once/disconnect guard — the native loaded exactly once via observer.disconnect(),
+           here every re-intersection re-fetches; (3) no reaction renders the fetched comment list intothe comments body (mutations land on the
+           owner element only, and there is no map/append reaction). `log` is the only honest tail for the fetch. -->
+      <div id="demo-7-12">
+        <p style="font-size:.8rem;color:#777;">Scroll down inside this page — the comments section below starts loading just before it enters the viewport.</p>
+        <div style="height:260px;border:1px dashed #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#aaa;">thread content (scroll past me)</div>
+        <section id="comments-7-12" style="margin-top:1rem;background:#fff;border:1px solid #ccc;border-radius:4px;padding:.75rem;" intersection:fetch_https://example.com/api/comments?thread=42:log>
+          <strong>Comments</strong>
+          <div id="comments-body-7-12"><p style="color:#888;">Not loaded yet.</p></div>
+        </section>
+      </div>
+      <!-- <script> (() => {
+        const section = document.getElementById('comments-7-12'); const body = document.getElementById('comments-body-7-12');
+        const observer = new IntersectionObserver((entries) => { entries.forEach((entry) => { if (!entry.isIntersecting) return; observer.disconnect();
+          body.innerHTML = '<p style="color:#888;">Loading comments…</p>';
+          fetch('https://example.com/api/comments?thread=42').then(res => res.json().then((comments) => { body.innerHTML = '<ul style="margin:0;padding-left:1.25rem;">' + comments.map((c) => '<li>' + c.text + '</li>').join('') + '</ul>'; }).catch(() => { body.innerHTML = '<p style="color:#888;">Comments could not be loaded.</p>'; });
+        }, { rootMargin: '150px' });
+        observer.observe(section);
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 9.1 — single -->
+  <div class="case" id="case-9-1">
+    <h2>9.1 — Resize &amp; viewport: Chart grid reflows below tablet width</h2>
+    <p class="meta"><span class="label-single">single</span> · Resize &amp; viewport · When the browser window narrows below tablet width in a trading dashboard, the chart grid reflows from three columns to one.</p>
+    <div class="demo">
+      <style>
+        #demo-9-1 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+        #demo-9-1 .grid.narrow { grid-template-columns: 1fr; }
+        #demo-9-1 .cell { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1rem; text-align: center; color: #555; }
+      </style>
+      <!-- GAP: (1) there is no viewport/window resize portal (the window-only portal list has no `resize`; here the element `resize`
+           (ResizeObserver) portal is used, which fires when the grid's own box changes size — legitimately triggered by a window resize since the grid tracks the page width;
+           (2) the breakpoint threshold (`window.innerWidth < 700`) and the once-on-load initial apply have no DD equivalent — `class_narrow_toggle`
+           flips on *every* size change with no condition, so it can flap during a continuous drag. -->
+      <div id="demo-9-1">
+        <p style="font-size:.8rem;color:#777;">Resize the browser window below 700px wide and the grid reflows to one column.</p>
+        <div class="grid" id="grid-9-1" resize:class_narrow_toggle>
+          <div class="cell">Chart A</div>
+          <div class="cell">Chart B</div>
+          <div class="cell">Chart C</div>
+        </div>
+      </div>
+      <!-- <script> (() => {
+        const grid = document.getElementById('grid-9-1'); const reflow = () => grid.classList.toggle('narrow', window.innerWidth < 700);
+        window.addEventListener('resize', reflow); reflow();
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 9.12 — single -->
+  <div class="case" id="case-9-12">
+    <h2>9.12 — Resize &amp; viewport: Badge swaps label for icon when space runs out</h2>
+    <p class="meta"><span class="label-single">single</span> · Resize &amp; viewport · A badge reads its own width as it changes and swaps its full label text for a compact icon when space runs out.</p>
+    <div class="demo">
+      <style>
+        #demo-9-12 .resizable { resize: horizontal; overflow: hidden; width: 220px; max-width: 100%; min-width: 40px; border: 1px dashed #ccc; border-radius: 4px; padding: .25rem; }
+        #demo-9-12 .badge { display: block; width: 100%; box-sizing: border-box; background: #eef; border: 1px solid #99c; border-radius: 4px; padding: .3rem .5rem; text-align: center; white-space: nowrap; }
+      </style>
+      <!-- GAP: the native behavior compares the element's own content-box width against 110px and conditionally swaps the label back and forth.
+           DD has no width getter/compare reaction and no two-branch conditional — `resize:text_🔔` swaps to the icon on the first resize (any size) and never
+           restores the full label. A `resize` reaction seeded with a threshold + condition (or a style/text comparator) would close this gap. -->
+      <div id="demo-9-12">
+        <p style="font-size:.8rem;color:#777;">Drag the corner of the dashed box narrower and the badge swaps to an icon.</p>
+        <div class="resizable">
+          <span class="badge" id="badge-9-12" resize:text_🔔>Notifications</span>
+        </div>
+      </div>
+      <!-- <script> (() => {
+        const badge = document.getElementById('badge-9-12');
+        new ResizeObserver((entries) => { entries.forEach((entry) => { badge.textContent = entry.contentRect.width < 110 ? '🔔' : 'Notifications'; }); }).observe(badge);
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 10.1 — single -->
+  <div class="case" id="case-10-1">
+    <h2>10.1 — Scroll: Reading progress bar fills with depth</h2>
+    <p class="meta"><span class="label-single">single</span> · Scroll · As a user scrolls a long article, a progress bar at the top of the page fills in proportion to reading depth.</p>
+    <div class="demo">
+      <style>
+        #demo-10-1 .track { height: 6px; background: #e3e3e3; border-radius: 3px; margin-bottom: .5rem; }
+        #demo-10-1 .bar { height: 100%; width: 0; background: #2a7; border-radius: 3px; }
+        #demo-10-1 .article { height: 180px; overflow-y: scroll; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .75rem; }
+      </style>
+      <!-- GAP: reading depth is `scrollTop / (scrollHeight - clientHeight)` — a ratio of three scroll metrics. DD has no scroll-metric
+           getter reactions and no arithmetic/comparison reaction, so the proportional `style.width` write cannot be expressed. `scroll:log`
+           is the only honest partial — the bar (width 0) stays empty. A getter trio (scrollTop, scrollHeight, clientHeight) plus a
+           divide/percent reaction, or a dedicated `progress` readout reaction, would close this gap. -->
+      <div id="demo-10-1">
+        <div class="track"><div class="bar" id="bar-10-1"></div></div>
+        <div class="article" id="article-10-1" scroll:log>
+          <p><strong>The Long Article.</strong> Scroll inside this box and watch the bar fill.</p>
+          <p>Section one: an introduction long enough to make the point that reading depth can be measured from scroll metrics alone.</p>
+          <p>Section two:the middle of the piece, where the bar should read roughly half full once the scrollbar reaches the middle of its travel.</p>
+          <p>Section three: more body text, keeping the reader scrolling toward the end of the document.</p>
+          <p>Section four: almost there. The bar continues to track the fraction of the article that has been scrolled through.</p>
+          <p>Section five:the conclusion. When the bottom of the article is reached, the bar reads exactly one hundred percent.</p>
+        </div>
+      </div>
+      <!-- <script> (() => {
+        const article = document.getElementById('article-10-1'); const bar = document.getElementById('bar-10-1');
+        article.addEventListener('scroll', () => { const max = article.scrollHeight - article.clientHeight; bar.style.width = (max > 0 ? (article.scrollTop / max) * 100 :  100) + '%'; });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+  <!-- CASE: 10.2 — multi -->
+  <div class="case" id="case-10-2">
+    <h2>10.2 — Scroll: Scrolling to end of terms enables accept button</h2>
+    <p class="meta"><span class="label-multi">multi</span> · Scroll · When a user scrolls to the end of a terms document in an account opening flow, the accept button becomes enabled.</p>
+    <div class="demo">
+      <style>
+        #demo-10-2 .terms { height: 120px; overflow-y: scroll; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: .75rem; margin-bottom: .75rem; font-size: .9rem; color: #444; }
+      </style>
+      <!-- GAP: (1) "reached the end" is the arithmetic condition `scrollTop + clientHeight >= scrollHeight - 2` — no scroll-metric getter
+           reactions and no comparison reaction exist, so the condition cannot be expressed; (2) the enable is a one-way latch write ontothe
+           separate accept button (cross-element), and no reaction can target or re-enable another element from this chain.. The native scroll
+           handler then becomes `scroll:log` (every scroll logs the scroll event.. -->
+      <div id="demo-10-2">
+        <div class="terms" id="terms-10-2" scroll:log>
+          <p><strong>Terms of Service.</strong> Scroll to the very end to enable the accept button.</p>
+          <p>1. The account holder agrees to the conditions laid out in this document, which continue for several paragraphs so that scrolling is required.</p>
+          <p>2. Fees, where applicable, are disclosed in the schedule attached to the account agreement.</p>
+          <p>3. Either party may close the account with thirty days of written notice.</p>
+          <p>4. Disputes are settled under the laws of the issuing jurisdiction.</p>
+          <p>5. End of terms. The accept button is now enabled.</p>
+        </div>
+        <button id="accept-10-2" disabled>Accept terms</button>
+      </div>
+      <!-- <script> (() => {
+        const terms = document.getElementById('terms-10-2'); const accept = document.getElementById('accept-10-2');
+        terms.addEventListener('scroll', () => { if (terms.scrollTop + terms.clientHeight >= terms.scrollHeight - 2) { accept.disabled = false; } });
+      })();
+      </script>-->
+  </div>
+  </div>
+
+</body>
+</html>
